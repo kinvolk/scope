@@ -37,6 +37,13 @@ has_container() {
 	assert "curl -s http://$host:4040/api/topology/containers?system=show | jq -r '[.nodes[] | select(.label_major == \"$name\")] | length'" $count
 }
 
+has_container_id() {
+	local host=$1
+	local id=$2
+	local count=${3:-1}
+	assert "curl -s http://$host:4040/api/topology/containers?system=show | jq -r '[.nodes[] | select(.id == \"$id\")] | length'" $count
+}
+
 scope_end_suite() {
 	end_suite
 	for host in $HOSTS; do
@@ -53,11 +60,9 @@ container_id() {
 # this checks we have an edge from container 1 to container 2
 has_connection() {
 	local host="$1"
-	local from="$2"
-	local to="$3"
+	local from_id="$2"
+	local to_id="$3"
 	local timeout="${4:-60}"
-	local from_id=$(container_id "$host" "$from")
-	local to_id=$(container_id "$host" "$to")
 
 	for i in $(seq $timeout); do
 		local containers="$(curl -s http://$host:4040/api/topology/containers?system=show)"

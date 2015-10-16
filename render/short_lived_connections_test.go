@@ -70,9 +70,10 @@ var (
 	}
 
 	want = (render.RenderableNodes{
-		render.TheInternetID: {
-			ID:         render.TheInternetID,
+		render.IncomingInternetID: {
+			ID:         render.IncomingInternetID,
 			LabelMajor: render.TheInternetMajor,
+			LabelMinor: render.Incoming,
 			Pseudo:     true,
 			Node:       report.MakeNode().WithAdjacent(containerID),
 			Origins:    report.MakeIDList(randomEndpointNodeID),

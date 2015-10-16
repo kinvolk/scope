@@ -25,8 +25,8 @@ do_connections&
 wait_for_containers $HOST1 60 nginx "The Internet"
 
 has_container $HOST1 nginx
-has_container $HOST1 "The Internet"
-has_connection $HOST1 "The Internet" nginx
+has_container_id $HOST1 'in-theinternet'
+has_connection $HOST1 'in-theinternet' $(container_id $1 nginx)
 
 kill %do_connections
 

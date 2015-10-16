@@ -20,8 +20,12 @@ const (
 	UncontainedID    = "uncontained"
 	UncontainedMajor = "Uncontained"
 
-	TheInternetID    = "theinternet"
-	TheInternetMajor = "The Internet"
+	TheInternetID      = "theinternet"
+	IncomingInternetID = "in-" + TheInternetID
+	OutgoingInternetID = "out-" + TheInternetID
+	TheInternetMajor   = "The Internet"
+	Incoming           = "Incoming"
+	Outgoing           = "Outgoing"
 
 	containersKey = "containers"
 	podsKey       = "pods"
@@ -36,6 +40,19 @@ const (
 //
 // If the output is empty, the node shall be omitted from the rendered topology.
 type MapFunc func(RenderableNode, report.Networks) RenderableNodes
+
+func generateInternetNodeFor(m RenderableNode) RenderableNodes {
+	node := newDerivedPseudoNode("", TheInternetMajor, m)
+	// emit one internet node for incoming, one for outgoing
+	if len(m.Adjacency) > 0 {
+		node.ID = IncomingInternetID
+		node.LabelMinor = Incoming
+	} else {
+		node.ID = OutgoingInternetID
+		node.LabelMinor = Outgoing
+	}
+	return RenderableNodes{node.ID: node}
+}
 
 // MapEndpointIdentity maps an endpoint topology node to a single endpoint
 // renderable node. As it is only ever run on endpoint topology nodes, we
@@ -62,7 +79,7 @@ func MapEndpointIdentity(m RenderableNode, local report.Networks) RenderableNode
 		// If the dstNodeAddr is not in a network local to this report, we emit an
 		// internet node
 		if ip := net.ParseIP(addr); ip != nil && !local.Contains(ip) {
-			return RenderableNodes{TheInternetID: newDerivedPseudoNode(TheInternetID, TheInternetMajor, m)}
+			return generateInternetNodeFor(m)
 		}
 
 		// We are a 'client' pseudo node if the port is in the ephemeral port range.
@@ -231,8 +248,8 @@ func MapAddressIdentity(m RenderableNode, local report.Networks) RenderableNodes
 	if !hasHostID {
 		// If the addr is not in a network local to this report, we emit an
 		// internet node
-		if !local.Contains(net.ParseIP(addr)) {
-			return RenderableNodes{TheInternetID: newDerivedPseudoNode(TheInternetID, TheInternetMajor, m)}
+		if ip := net.ParseIP(addr); ip != nil && !local.Contains(ip) {
+			return generateInternetNodeFor(m)
 		}
 
 		// Otherwise generate a pseudo node for every
@@ -289,7 +306,7 @@ func MapEndpoint2IP(m RenderableNode, local report.Networks) RenderableNodes {
 		return RenderableNodes{}
 	}
 	if ip := net.ParseIP(addr); ip != nil && !local.Contains(ip) {
-		return RenderableNodes{TheInternetID: newDerivedPseudoNode(TheInternetID, TheInternetMajor, m)}
+		return generateInternetNodeFor(m)
 	}
 
 	// We don't always know what port a container is listening on, and
@@ -350,8 +367,8 @@ func MapIP2Container(n RenderableNode, _ report.Networks) RenderableNodes {
 		return RenderableNodes{}
 	}
 
-	// Propogate the internet pseudo node.
-	if n.ID == TheInternetID {
+	// Propogate the internet pseudo node
+	if strings.HasSuffix(n.ID, TheInternetID) {
 		return RenderableNodes{n.ID: n}
 	}
 
@@ -404,7 +421,7 @@ func MapEndpoint2Process(n RenderableNode, _ report.Networks) RenderableNodes {
 // must be merged with a container graph to get that info.
 func MapProcess2Container(n RenderableNode, _ report.Networks) RenderableNodes {
 	// Propogate the internet pseudo node
-	if n.ID == TheInternetID {
+	if strings.HasSuffix(n.ID, TheInternetID) {
 		return RenderableNodes{n.ID: n}
 	}
 

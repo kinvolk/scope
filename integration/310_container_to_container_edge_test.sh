@@ -16,6 +16,6 @@ wait_for_containers $HOST1 60 nginx client
 
 has_container $HOST1 nginx
 has_container $HOST1 client
-has_connection $HOST1 client nginx
+has_connection $HOST1 $(container_id $HOST1 client) $(container_id $HOST1 nginx)
 
 scope_end_suite
