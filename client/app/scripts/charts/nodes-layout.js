@@ -126,6 +126,78 @@ function runLayoutEngine(graph, imNodes, imEdges, opts) {
 }
 
 /**
+ * Position the internet nodes above/below the rest of the graph
+ * @param  {Object} layout Layout with nodes and edges
+ * @param  {Object} opts   Options with scale
+ * @return {Object}        modified layout
+ */
+function positionInternet(layout, opts) {
+  const options = opts || {};
+  const scale = options.scale || (val => val * 2);
+  const delta = scale(2.5);
+  const IN = 'in-theinternet';
+  const OUT = 'out-theinternet';
+  let nodes = layout.nodes;
+  let edges = layout.edges;
+
+  if (nodes.has(IN)) {
+    // shift IN node to the top
+    const minYNode = nodes.minBy(node => node.get('y'));
+    nodes = nodes.setIn([IN, 'y'], minYNode.get('y') - delta);
+
+    // adjust negative coordinates
+    const minY = minYNode.get('y') - delta;
+    if (minY < 0) {
+      nodes = nodes.map(node => {
+        return node.set('y', node.get('y') - minY + delta);
+      });
+    }
+
+    // adjust edges that connect to IN node
+    const inNode = nodes.get(IN);
+    edges = edges.map(edge => {
+      if (edge.get('source') === IN) {
+        const points = edge.get('points');
+        points[0] = {x: inNode.get('x'), y: inNode.get('y')};
+        return edge.set('points', points);
+      }
+      if (edge.get('target') === IN) {
+        const points = edge.get('points');
+        points[points.length - 1] = {x: inNode.get('x'), y: inNode.get('y')};
+        return edge.set('points', points);
+      }
+      return edge;
+    });
+  }
+
+  if (nodes.has(OUT)) {
+    // shift OUT node to the bottom
+    const maxYNode = nodes.maxBy(node => node.get('y'));
+    nodes = nodes.setIn([OUT, 'y'], maxYNode.get('y') + delta);
+
+    // adjust edges that connect to OUT node
+    const outNode = nodes.get(OUT);
+    edges = edges.map(edge => {
+      if (edge.get('source') === OUT) {
+        const points = edge.get('points');
+        points[0] = {x: outNode.get('x'), y: outNode.get('y')};
+        return edge.set('points', points);
+      }
+      if (edge.get('target') === OUT) {
+        const points = edge.get('points');
+        points[points.length - 1] = {x: outNode.get('x'), y: outNode.get('y')};
+        return edge.set('points', points);
+      }
+      return edge;
+    });
+  }
+
+  layout.edges = edges;
+  layout.nodes = nodes;
+  return layout;
+}
+
+/**
  * Adds `points` array to edge based on location of source and target
  * @param {Map} edge           new edge
  * @param {Map} nodeCache      all nodes
@@ -243,6 +315,7 @@ export function doLayout(nodes, edges, opts) {
   } else {
     const graph = cache.graph;
     layout = runLayoutEngine(graph, nodes, edges, opts);
+    layout = positionInternet(layout, opts);
   }
 
   // cache results
