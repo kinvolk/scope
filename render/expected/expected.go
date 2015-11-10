@@ -47,8 +47,8 @@ var (
 	theIncomingInternetNode = func(adjacent string) render.RenderableNode {
 		return render.RenderableNode{
 			ID:         render.IncomingInternetID,
-			LabelMajor: render.TheInternetMajor,
-			LabelMinor: render.Incoming,
+			LabelMajor: render.InboundMajor,
+			LabelMinor: render.RequestsMinor,
 			Pseudo:     true,
 			Node:       report.MakeNode().WithAdjacent(adjacent),
 			EdgeMetadata: report.EdgeMetadata{
@@ -62,8 +62,8 @@ var (
 	}
 	theOutgoingInternetNode = render.RenderableNode{
 		ID:           render.OutgoingInternetID,
-		LabelMajor:   render.TheInternetMajor,
-		LabelMinor:   render.Outgoing,
+		LabelMajor:   render.OutboundMajor,
+		LabelMinor:   render.RequestsMinor,
 		Pseudo:       true,
 		Node:         report.MakeNode(),
 		EdgeMetadata: report.EdgeMetadata{},
@@ -378,8 +378,8 @@ var (
 		},
 		render.IncomingInternetID: {
 			ID:           render.IncomingInternetID,
-			LabelMajor:   render.TheInternetMajor,
-			LabelMinor:   render.Incoming,
+			LabelMajor:   render.InboundMajor,
+			LabelMinor:   render.RequestsMinor,
 			Pseudo:       true,
 			Node:         report.MakeNode().WithAdjacent(ServerHostRenderedID),
 			EdgeMetadata: report.EdgeMetadata{},

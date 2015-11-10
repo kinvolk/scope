@@ -23,9 +23,9 @@ const (
 	TheInternetID      = "theinternet"
 	IncomingInternetID = "in-" + TheInternetID
 	OutgoingInternetID = "out-" + TheInternetID
-	TheInternetMajor   = "The Internet"
-	Incoming           = "Incoming"
-	Outgoing           = "Outgoing"
+	InboundMajor       = "Inbound"
+	OutboundMajor      = "Outbound"
+	RequestsMinor      = "Requests"
 
 	containersKey = "containers"
 	podsKey       = "pods"
@@ -42,14 +42,16 @@ const (
 type MapFunc func(RenderableNode, report.Networks) RenderableNodes
 
 func generateInternetNodeFor(m RenderableNode) RenderableNodes {
-	node := newDerivedPseudoNode("", TheInternetMajor, m)
+	node := newDerivedPseudoNode("", "", m)
 	// emit one internet node for incoming, one for outgoing
 	if len(m.Adjacency) > 0 {
 		node.ID = IncomingInternetID
-		node.LabelMinor = Incoming
+		node.LabelMajor = InboundMajor
+		node.LabelMinor = RequestsMinor
 	} else {
 		node.ID = OutgoingInternetID
-		node.LabelMinor = Outgoing
+		node.LabelMajor = OutboundMajor
+		node.LabelMinor = RequestsMinor
 	}
 	return RenderableNodes{node.ID: node}
 }
