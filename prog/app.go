@@ -9,23 +9,25 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/gorilla/mux"
 	"github.com/weaveworks/go-checkpoint"
 	"github.com/weaveworks/weave/common"
 
 	"github.com/weaveworks/scope/app"
+	"github.com/weaveworks/scope/app/multitenant"
 	"github.com/weaveworks/scope/common/weave"
 	"github.com/weaveworks/scope/common/xfer"
 	"github.com/weaveworks/scope/probe/docker"
 )
 
 // Router creates the mux for all the various app components.
-func router(c app.Collector) http.Handler {
+func router(collector app.Collector, controlRouter app.ControlRouter, pipeRouter app.PipeRouter) http.Handler {
 	router := mux.NewRouter()
-	app.RegisterReportPostHandler(c, router)
-	app.RegisterControlRoutes(router, app.NewLocalControlRouter())
-	app.RegisterPipeRoutes(router, app.NewLocalPipeRouter())
-	return app.TopologyHandler(c, router, http.FileServer(FS(false)))
+	app.RegisterReportPostHandler(collector, router)
+	app.RegisterControlRoutes(router, controlRouter)
+	app.RegisterPipeRoutes(router, pipeRouter)
+	return app.TopologyHandler(collector, router, http.FileServer(FS(false)))
 }
 
 // Main runs the app
@@ -40,6 +42,17 @@ func appMain() {
 		weaveHostname  = flag.String("weave.hostname", app.DefaultHostname, "Hostname to advertise in WeaveDNS")
 		containerName  = flag.String("container.name", app.DefaultContainerName, "Name of this container (to lookup container ID)")
 		dockerEndpoint = flag.String("docker", app.DefaultDockerEndpoint, "Location of docker endpoint (to lookup container ID)")
+
+		collectorType     = flag.String("collector", "local", "Collector to use (local of dynamodb)")
+		controlRouterType = flag.String("control.router", "local", "Control router to use (local or sqs)")
+		pipeRouterType    = flag.String("pipe.router", "local", "Pipe router to use (local)")
+
+		awsDynamoDB = flag.String("aws.dynamodb", "", "URL of DynamoDB instance")
+		awsSQS      = flag.String("aws.sqs", "", "URL of SQS instance")
+		awsRegion   = flag.String("aws.region", "", "AWS Region")
+		awsID       = flag.String("aws.id", "", "AWS Account ID")
+		awsSecret   = flag.String("aws.secret", "", "AWS Account Secret")
+		awsToken    = flag.String("aws.token", "", "AWS Account Token")
 	)
 	flag.Parse()
 
@@ -47,6 +60,39 @@ func appMain() {
 	setLogFormatter(*logPrefix)
 
 	defer log.Info("app exiting")
+
+	// Create a collector
+	var collector app.Collector
+	if *collectorType == "local" {
+		collector = app.NewCollector(*window)
+	} else if *collectorType == "dynamodb" {
+		creds := credentials.NewStaticCredentials(*awsID, *awsSecret, *awsToken)
+		collector = multitenant.NewDynamoDBCollector(*awsSQS, *awsRegion, creds)
+	} else {
+		log.Fatalf("Invalid collector '%s'", *collectorType)
+		return
+	}
+
+	// Create a control router
+	var controlRouter app.ControlRouter
+	if *controlRouterType == "local" {
+		controlRouter = app.NewLocalControlRouter()
+	} else if *controlRouterType == "sqs" {
+		creds := credentials.NewStaticCredentials(*awsID, *awsSecret, *awsToken)
+		controlRouter = multitenant.NewSQSControlRouter(*awsDynamoDB, *awsRegion, creds)
+	} else {
+		log.Fatalf("Invalid control router '%s'", *controlRouterType)
+		return
+	}
+
+	// Create a pipe router
+	var pipeRouter app.PipeRouter
+	if *pipeRouterType == "local" {
+		pipeRouter = app.NewLocalPipeRouter()
+	} else {
+		log.Fatalf("Invalid pipe router '%s'", *pipeRouterType)
+		return
+	}
 
 	// Start background version checking
 	checkpoint.CheckInterval(&checkpoint.CheckParams{
@@ -78,7 +124,7 @@ func appMain() {
 		}
 	}
 
-	handler := router(app.NewCollector(*window))
+	handler := router(collector, controlRouter, pipeRouter)
 	go func() {
 		log.Infof("listening on %s", *listen)
 		log.Info(http.ListenAndServe(*listen, handler))
