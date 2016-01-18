@@ -23,6 +23,7 @@
     "react-addons-transition-group": "0.14.3",
     "react-addons-update": "0.14.3",
     "react-dom": "0.14.3",
+    "react-mixin": "^3.0.3",
     "react-motion": "0.3.1",
     "reqwest": "~2.0.5",
     "timely": "0.1.0"
@@ -47,6 +48,7 @@
     "less": "~2.5.1",
     "less-loader": "2.2.1",
     "postcss-loader": "0.7.0",
+    "react-addons-perf": "^0.14.6",
     "style-loader": "0.13.0",
     "url": "0.11.0",
     "url-loader": "0.5.6",

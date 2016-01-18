@@ -13,6 +13,11 @@ import { doLayout } from './nodes-layout';
 import Node from './node';
 import NodesError from './nodes-error';
 
+import Perf from 'react-addons-perf';
+import PureRenderMixin from 'react-addons-pure-render-mixin';
+import reactMixin from 'react-mixin';
+
+
 const log = debug('scope:nodes-chart');
 
 const MARGINS = {
@@ -31,6 +36,7 @@ export default class NodesChart extends React.Component {
     super(props, context);
     this.handleMouseClick = this.handleMouseClick.bind(this);
     this.zoomed = this.zoomed.bind(this);
+    this.perfStop = _.debounce(this.perfStop.bind(this), 2000);
 
     this.state = {
       nodes: makeMap(),
@@ -214,6 +220,7 @@ export default class NodesChart extends React.Component {
     const transform = 'translate(' + translate + ') scale(' + scale + ')';
     const svgClassNames = this.state.maxNodesExceeded || nodeElements.size === 0 ? 'hide' : '';
     const errorEmpty = this.renderEmptyTopologyError(AppStore.isTopologyEmpty());
+
     const errorMaxNodesExceeded = this.renderMaxNodesError(this.state.maxNodesExceeded);
 
     return (
@@ -459,9 +466,18 @@ export default class NodesChart extends React.Component {
     return this.state.nodeScale.copy().range([0, normalizedNodeSize]);
   }
 
+  perfStop() {
+    Perf.stop();
+    const measurements = Perf.getLastMeasurements();
+    Perf.printInclusive(measurements);
+    Perf.printWasted(measurements);
+  }
+
   zoomed() {
     // debug('zoomed', d3.event.scale, d3.event.translate);
     this.isZooming = true;
+    Perf.start();
+    this.perfStop();
     // dont pan while node is selected
     if (!this.props.selectedNodeId) {
       this.setState({
@@ -472,3 +488,5 @@ export default class NodesChart extends React.Component {
     }
   }
 }
+
+reactMixin(NodesChart.prototype, PureRenderMixin);

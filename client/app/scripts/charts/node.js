@@ -1,9 +1,13 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
+import d3 from 'd3';
 import { Motion, spring } from 'react-motion';
 
 import { clickNode, enterNode, leaveNode } from '../actions/app-actions';
 import { getNodeColor } from '../utils/color-utils';
+
+import PureRenderMixin from 'react-addons-pure-render-mixin';
+import reactMixin from 'react-mixin';
 
 export default class Node extends React.Component {
   constructor(props, context) {
@@ -65,7 +69,7 @@ export default class Node extends React.Component {
         subLabelOffsetY: spring(subLabelOffsetY, animConfig)
       }}>
         {function(interpolated) {
-          const transform = `translate(${interpolated.x},${interpolated.y})`;
+          const transform = `translate(${d3.round(interpolated.x, 2)},${d3.round(interpolated.y, 2)})`;
           return (
             <g className={classes} transform={transform} id={props.id}
               onClick={onMouseClick} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
@@ -111,3 +115,5 @@ export default class Node extends React.Component {
     leaveNode(this.props.id);
   }
 }
+
+reactMixin(Node.prototype, PureRenderMixin);

@@ -4,6 +4,8 @@ import React from 'react';
 import { Motion, spring } from 'react-motion';
 
 import { enterEdge, leaveEdge } from '../actions/app-actions';
+import PureRenderMixin from 'react-addons-pure-render-mixin';
+import reactMixin from 'react-mixin';
 
 const line = d3.svg.line()
   .interpolate('basis')
@@ -104,3 +106,4 @@ export default class Edge extends React.Component {
     leaveEdge(ev.currentTarget.id);
   }
 }
+reactMixin(Edge.prototype, PureRenderMixin);
