@@ -42,6 +42,7 @@ func MakeNode(r report.Report, n render.RenderableNode) Node {
 		Controls:    controls(r, n),
 		Children:    children(n),
 		Parents:     Parents(r, n),
+		Connections: connections(r, n),
 	}
 }
 
