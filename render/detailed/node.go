@@ -14,11 +14,12 @@ import (
 // we want deep information about an individual node.
 type Node struct {
 	NodeSummary
-	Rank     string             `json:"rank,omitempty"`
-	Pseudo   bool               `json:"pseudo,omitempty"`
-	Controls []ControlInstance  `json:"controls"`
-	Children []NodeSummaryGroup `json:"children,omitempty"`
-	Parents  []Parent           `json:"parents,omitempty"`
+	Rank        string                  `json:"rank,omitempty"`
+	Pseudo      bool                    `json:"pseudo,omitempty"`
+	Controls    []ControlInstance       `json:"controls"`
+	Children    []NodeSummaryGroup      `json:"children,omitempty"`
+	Parents     []Parent                `json:"parents,omitempty"`
+	Connections map[string][]Connection `json:"connections,omitempty"`
 }
 
 // ControlInstance contains a control description, and all the info
@@ -42,7 +43,7 @@ func MakeNode(r report.Report, n render.RenderableNode) Node {
 		Controls:    controls(r, n),
 		Children:    children(n),
 		Parents:     Parents(r, n),
-		Connections: connections(r, n),
+		Connections: Connections(r, n),
 	}
 }
 

@@ -1,7 +1,7 @@
 package detailed
 
 import (
-	"sort"
+	"net"
 
 	"github.com/weaveworks/scope/render"
 	"github.com/weaveworks/scope/report"
@@ -14,17 +14,54 @@ type Connection struct {
 	Label      string `json:"label"` // Human-readable text of the remote node
 	LocalPort  string `json:"local_port,omitempty"`
 	RemotePort string `json:"remote_port,omitempty"`
-	Count      int    `json:"count"`
+	Count      uint64 `json:"count"`
 }
 
-// connections renders the connections of this report.Node, aggregating and
+// Connections renders the connections of this report.Node, aggregating and
 // counting them by local/remote port as appropriate.
-func connections(r report.Report, n render.RenderableNode) map[string][]Connection {
+func Connections(r report.Report, n render.RenderableNode) map[string][]Connection {
+	// For each endpoint/address in n.Children (or possibly by n.Node.Edges)
 	incoming, outgoing := []Connection{}, []Connection{}
-	return map[string][]Connection{
-		"incoming": incoming,
-		"outgoing": outgoing,
+	n.Node.Edges.ForEach(func(dst string, edge report.EdgeMetadata) {
+		// find the node containing that endpoint in current topology
+		// count connections to that node by local/remote port
+		// TODO: dst looks like
+		// Edge "host:vagrant-ubuntu-vivid-64" Destination: ";172.16.0.3"
+		// Edge "host:vagrant-ubuntu-vivid-64" Destination: "vagrant-ubuntu-vivid-64;127.0.0.1"
+		// Edge "host:vagrant-ubuntu-vivid-64" Destination: ";10.0.2.15"
+		// Edge "host:vagrant-ubuntu-vivid-64" Destination: "vagrant-ubuntu-vivid-64;127.0.0.1;4040"
+		// Edge "host:vagrant-ubuntu-vivid-64" Destination: "vagrant-ubuntu-vivid-64;127.0.0.1;6784"
+		// Edge "host:vagrant-ubuntu-vivid-64" Destination: ";10.32.0.2;80"
+		// Edge "host:vagrant-ubuntu-vivid-64" Destination: ";172.16.0.3"
+		// Edge "host:vagrant-ubuntu-vivid-64" Destination: "vagrant-ubuntu-vivid-64;127.0.0.1"
+		// Edge "host:vagrant-ubuntu-vivid-64" Destination: ";10.0.2.15"
+		// Edge "host:vagrant-ubuntu-vivid-64" Destination: "vagrant-ubuntu-vivid-64;127.0.0.1;4040"
+		// Edge "host:vagrant-ubuntu-vivid-64" Destination: "vagrant-ubuntu-vivid-64;127.0.0.1;6784"
+		// Edge "host:vagrant-ubuntu-vivid-64" Destination: ";10.32.0.2;80"
+		host, port, err := net.SplitHostPort(dst)
+		if err != nil {
+			return
+		}
+		var count uint64
+		if edge.MaxConnCountTCP != nil {
+			count = *edge.MaxConnCountTCP
+		}
+		incoming = append(incoming, Connection{ID: dst, Label: host, RemotePort: port, Count: count})
+	})
+	var result map[string][]Connection
+	if len(incoming) > 0 {
+		if result == nil {
+			result = map[string][]Connection{}
+		}
+		result["incoming"] = incoming
 	}
+	if len(outgoing) > 0 {
+		if result == nil {
+			result = map[string][]Connection{}
+		}
+		result["outgoing"] = outgoing
+	}
+	return result
 }
 
 /*
@@ -97,5 +134,58 @@ func connectionsTable(connections []Row, r report.Report, n RenderableNode) (Tab
 		}, true
 	}
 	return Table{}, false
+}
+
+func connectionDetailsRows(topology report.Topology, originID string) []Row {
+       rows := []Row{}
+       labeler := func(nodeID string, sets report.Sets) (string, bool) {
+               if _, addr, port, ok := report.ParseEndpointNodeID(nodeID); ok {
+                       if names, ok := sets["name"]; ok {
+                               return fmt.Sprintf("%s:%s", names[0], port), true
+                       }
+                       return fmt.Sprintf("%s:%s", addr, port), true
+               }
+               if _, addr, ok := report.ParseAddressNodeID(nodeID); ok {
+                       return addr, true
+               }
+               return "", false
+       }
+       local, ok := labeler(originID, topology.Nodes[originID].Sets)
+       if !ok {
+               return rows
+       }
+       // Firstly, collection outgoing connections from this node.
+       for _, serverNodeID := range topology.Nodes[originID].Adjacency {
+               remote, ok := labeler(serverNodeID, topology.Nodes[serverNodeID].Sets)
+               if !ok {
+                       continue
+               }
+               rows = append(rows, Row{
+                       Key:        local,
+                       ValueMajor: remote,
+                       Expandable: true,
+               })
+       }
+       // Next, scan the topology for incoming connections to this node.
+       for clientNodeID, clientNode := range topology.Nodes {
+               if clientNodeID == originID {
+                       continue
+               }
+               serverNodeIDs := clientNode.Adjacency
+               if !serverNodeIDs.Contains(originID) {
+                       continue
+               }
+               remote, ok := labeler(clientNodeID, clientNode.Sets)
+               if !ok {
+                       continue
+               }
+               rows = append(rows, Row{
+                       Key:        remote,
+                       ValueMajor: local,
+                       ValueMinor: "",
+                       Expandable: true,
+               })
+       }
+       return rows
 }
 */
