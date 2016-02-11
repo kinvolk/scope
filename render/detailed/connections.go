@@ -1,7 +1,7 @@
 package detailed
 
 import (
-	"net"
+	"fmt"
 
 	"github.com/weaveworks/scope/render"
 	"github.com/weaveworks/scope/report"
@@ -22,6 +22,21 @@ type Connection struct {
 func Connections(r report.Report, n render.RenderableNode) map[string][]Connection {
 	// For each endpoint/address in n.Children (or possibly by n.Node.Edges)
 	incoming, outgoing := []Connection{}, []Connection{}
+	fmt.Printf("Node %q Children: %v\n", n.ID, n.Children)
+
+	labeler := func(nodeID string) (string, string, bool) {
+		if _, addr, port, ok := report.ParseEndpointNodeID(nodeID); ok {
+			if names, ok := r.Endpoint.Nodes[nodeID].Sets.Lookup("name"); ok {
+				return names[0], port, true
+			}
+			return addr, port, true
+		}
+		if _, addr, ok := report.ParseAddressNodeID(nodeID); ok {
+			return addr, "", true
+		}
+		return "", "", false
+	}
+	incomingAggregation := map[string]Connection{}
 	n.Node.Edges.ForEach(func(dst string, edge report.EdgeMetadata) {
 		// find the node containing that endpoint in current topology
 		// count connections to that node by local/remote port
@@ -38,16 +53,53 @@ func Connections(r report.Report, n render.RenderableNode) map[string][]Connecti
 		// Edge "host:vagrant-ubuntu-vivid-64" Destination: "vagrant-ubuntu-vivid-64;127.0.0.1;4040"
 		// Edge "host:vagrant-ubuntu-vivid-64" Destination: "vagrant-ubuntu-vivid-64;127.0.0.1;6784"
 		// Edge "host:vagrant-ubuntu-vivid-64" Destination: ";10.32.0.2;80"
-		host, port, err := net.SplitHostPort(dst)
-		if err != nil {
+		address, port, ok := labeler(dst)
+		if !ok {
 			return
 		}
 		var count uint64
 		if edge.MaxConnCountTCP != nil {
 			count = *edge.MaxConnCountTCP
 		}
-		incoming = append(incoming, Connection{ID: dst, Label: host, RemotePort: port, Count: count})
+		if existing, ok := incomingAggregation[dst]; ok {
+			existing.Count += count
+			incomingAggregation[dst] = existing
+		} else {
+			incomingAggregation[dst] = Connection{ID: dst, Label: address, LocalPort: port, Count: count}
+		}
 	})
+	for _, connection := range incomingAggregation {
+		incoming = append(incoming, connection)
+	}
+
+	// Firstly, collection outgoing connections from this node.
+	outgoingAggregation := map[string]Connection{}
+	n.Children.ForEach(func(child report.Node) {
+		switch child.Topology {
+		case report.Endpoint, report.Address:
+			for _, serverNodeID := range child.Adjacency {
+				remote, remotePort, ok := labeler(serverNodeID)
+				if !ok {
+					continue
+				}
+				if existing, ok := outgoingAggregation[serverNodeID]; ok {
+					existing.Count += 1 // ???
+					outgoingAggregation[serverNodeID] = existing
+				} else {
+					outgoingAggregation[serverNodeID] = Connection{
+						ID:         serverNodeID,
+						Label:      remote,
+						RemotePort: remotePort,
+						Count:      1, // ???
+					}
+				}
+			}
+		}
+	})
+	for _, connection := range outgoingAggregation {
+		outgoing = append(outgoing, connection)
+	}
+
 	var result map[string][]Connection
 	if len(incoming) > 0 {
 		if result == nil {

@@ -310,6 +310,7 @@ func MapEndpoint2IP(m RenderableNode, local report.Networks) RenderableNodes {
 	id := report.MakeScopedEndpointNodeID(scope, addr, "")
 	idWithPort := report.MakeScopedEndpointNodeID(scope, addr, port)
 	m = m.WithParents(report.EmptySets)
+	m.Children = m.Children.Add(m.Node)
 	return RenderableNodes{
 		id:         NewRenderableNodeWith(id, "", "", "", m),
 		idWithPort: NewRenderableNodeWith(idWithPort, "", "", "", m),
@@ -402,7 +403,9 @@ func MapEndpoint2Process(n RenderableNode, _ report.Networks) RenderableNodes {
 	}
 
 	id := MakeProcessID(report.ExtractHostID(n.Node), pid)
-	return RenderableNodes{id: NewDerivedNode(id, n.WithParents(report.EmptySets))}
+	node := NewDerivedNode(id, n.WithParents(report.EmptySets))
+	node.Children = node.Children.Add(n.Node)
+	return RenderableNodes{id: node}
 }
 
 // MapProcess2Container maps process RenderableNodes to container
