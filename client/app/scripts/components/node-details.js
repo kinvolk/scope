@@ -180,6 +180,38 @@ export default class NodeDetails extends React.Component {
               </div>
             );
           })}
+
+          {details.connections && details.connections.incoming && details.connections.incoming.length > 0 &&
+            <div className="node-details-content-section">
+              <NodeDetailsTable
+                  key="incoming_connections"
+                  label="Incoming"
+                  columns={['local_port', 'count']}
+                  nodes={details.connections.incoming.map(({id, label, local_port, count}) => {
+                    return {id, label, metadata: [
+                      {id: 'local_port', label: 'Local Port', value: local_port},
+                      {id: 'count', label: 'Count', value: count},
+                    ]};
+                  })}
+                />
+            </div>
+          }
+
+          {details.connections && details.connections.outgoing && details.connections.outgoing.length > 0 &&
+            <div className="node-details-content-section">
+              <NodeDetailsTable
+                key="outgoing_connections"
+                label="Outgoing"
+                columns={['remote_port', 'count']}
+                nodes={details.connections.outgoing.map(({id, label, remote_port, count}) => {
+                  return {id, label, metadata: [
+                    {id: 'remote_port', label: 'Remote Port', value: remote_port},
+                    {id: 'count', label: 'Count', value: count},
+                  ]};
+                })}
+              />
+            </div>
+          }
         </div>
       </div>
     );
