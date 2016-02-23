@@ -123,7 +123,7 @@ func (c EdgeMetadatas) String() string {
 		val, _ := c.psMap.Lookup(key)
 		fmt.Fprintf(buf, "%s: %v, ", key, val)
 	}
-	fmt.Fprintf(buf, "}\n")
+	fmt.Fprintf(buf, "}")
 	return buf.String()
 }
 

@@ -55,13 +55,14 @@ func handleNode(nodeID string) func(context.Context, Reporter, render.Renderer, 
 	return func(ctx context.Context, rep Reporter, renderer render.Renderer, w http.ResponseWriter, r *http.Request) {
 		var (
 			rpt      = rep.Report(ctx)
-			node, ok = renderer.Render(rep.Report(ctx))[nodeID]
+			rendered = renderer.Render(rep.Report(ctx))
+			node, ok = rendered[nodeID]
 		)
 		if !ok {
 			http.NotFound(w, r)
 			return
 		}
-		respondWith(w, http.StatusOK, APINode{Node: detailed.MakeNode(rpt, node)})
+		respondWith(w, http.StatusOK, APINode{Node: detailed.MakeNode(rpt, rendered, node)})
 	}
 }
 
