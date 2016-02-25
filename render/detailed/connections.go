@@ -46,18 +46,19 @@ func makeIncomingConnectionsTable(n render.RenderableNode, ns render.RenderableN
 	remotes := map[string]int{}
 	for myend, nodes := range endpoints {
 		// what port are they talking to?
-		parts := strings.SplitN(myend, ":", 4)
-		if len(parts) != 4 {
+		_, _, port, ok := render.ParseEndpointID(myend)
+		if !ok {
 			continue
 		}
-		port := parts[3]
 
 		for _, node := range nodes {
 			// what is their IP address?
-			if parts := strings.SplitN(node.ID, ":", 4); len(parts) == 4 {
-				key := parts[2] + "|" + port
-				remotes[key] = remotes[key] + 1
+			_, addr, _, ok := render.ParseEndpointID(node.ID)
+			if !ok {
+				continue
 			}
+			key := addr + "|" + port
+			remotes[key] = remotes[key] + 1
 		}
 	}
 
@@ -85,10 +86,12 @@ func makeOutgoingConnectionsTable(n render.RenderableNode, ns render.RenderableN
 	remotes := map[string]int{}
 	for _, node := range endpoints {
 		for _, adjacent := range node.Adjacency {
-			if parts := strings.SplitN(adjacent, ":", 4); len(parts) == 4 {
-				key := parts[2] + "|" + parts[3]
-				remotes[key] = remotes[key] + 1
+			_, addr, port, ok := render.ParseEndpointID(adjacent)
+			if !ok {
+				continue
 			}
+			key := addr + "|" + port
+			remotes[key] = remotes[key] + 1
 		}
 	}
 

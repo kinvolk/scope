@@ -45,6 +45,22 @@ func theInternetNode(m RenderableNode) RenderableNode {
 	return r
 }
 
+// RemapEndpointIDs remaps endpoints to have the right id format.
+func RemapEndpointIDs(m RenderableNode, _ report.Networks) RenderableNodes {
+	addr, ok := m.Latest.Lookup(endpoint.Addr)
+	if !ok {
+		return RenderableNodes{}
+	}
+
+	port, ok := m.Latest.Lookup(endpoint.Port)
+	if !ok {
+		return RenderableNodes{}
+	}
+
+	id := MakeEndpointID(report.ExtractHostID(m.Node), addr, port)
+	return RenderableNodes{id: NewRenderableNodeWith(id, "", "", "", m)}
+}
+
 // MapEndpointIdentity maps an endpoint topology node to a single endpoint
 // renderable node. As it is only ever run on endpoint topology nodes, we
 // expect that certain keys are present.
@@ -67,33 +83,36 @@ func MapEndpointIdentity(m RenderableNode, local report.Networks) RenderableNode
 
 	// Nodes without a hostid are treated as psuedo nodes
 	if _, ok = m.Latest.Lookup(report.HostNodeID); !ok {
-		// If the dstNodeAddr is not in a network local to this report, we emit an
-		// internet node
-		if ip := net.ParseIP(addr); ip != nil && !local.Contains(ip) {
-			return RenderableNodes{TheInternetID: theInternetNode(m)}
-		}
+		var node RenderableNode
 
-		// We are a 'client' pseudo node if the port is in the ephemeral port range.
-		// Linux uses 32768 to 61000, IANA suggests 49152 to 65535.
-		if p, err := strconv.Atoi(port); err == nil && len(m.Adjacency) > 0 && p >= 32768 && p < 65535 {
+		if ip := net.ParseIP(addr); ip != nil && !local.Contains(ip) {
+			// If the dstNodeAddr is not in a network local to this report, we emit an
+			// internet node
+			node = theInternetNode(m)
+
+		} else if p, err := strconv.Atoi(port); err == nil && len(m.Adjacency) > 0 && p >= 32768 && p < 65535 {
+			// We are a 'client' pseudo node if the port is in the ephemeral port range.
+			// Linux uses 32768 to 61000, IANA suggests 49152 to 65535.
 			// We only exist if there is something in our adjacency
 			// Generate a single pseudo node for every (client ip, server ip, server port)
-			dstNodeID := m.Adjacency[0]
-			serverIP, serverPort := trySplitAddr(dstNodeID)
-			outputID := MakePseudoNodeID(addr, serverIP, serverPort)
-			return RenderableNodes{outputID: newDerivedPseudoNode(outputID, addr, m)}
+			_, serverIP, serverPort, _ := ParseEndpointID(m.Adjacency[0])
+			node = newDerivedPseudoNode(MakePseudoNodeID(addr, serverIP, serverPort), addr, m)
+
+		} else if port != "" {
+			// Otherwise (the server node is missing), generate a pseudo node for every (server ip, server port)
+			node = newDerivedPseudoNode(MakePseudoNodeID(addr, port), addr+":"+port, m)
+
+		} else {
+			// Empty port for some reason...
+			node = newDerivedPseudoNode(MakePseudoNodeID(addr, port), addr, m)
 		}
 
-		// Otherwise (the server node is missing), generate a pseudo node for every (server ip, server port)
-		outputID := MakePseudoNodeID(addr, port)
-		if port != "" {
-			return RenderableNodes{outputID: newDerivedPseudoNode(outputID, addr+":"+port, m)}
-		}
-		return RenderableNodes{outputID: newDerivedPseudoNode(outputID, addr, m)}
+		node.Children = node.Children.Add(m)
+		return RenderableNodes{node.ID: node}
 	}
 
 	var (
-		id    = MakeEndpointID(report.ExtractHostID(m.Node), addr, port)
+		id    = makeID("pseudo-endpoint", report.ExtractHostID(m.Node), addr, port)
 		major = fmt.Sprintf("%s:%s", addr, port)
 		minor = report.ExtractHostID(m.Node)
 	)
@@ -103,7 +122,9 @@ func MapEndpointIdentity(m RenderableNode, local report.Networks) RenderableNode
 		minor = fmt.Sprintf("%s (%s)", minor, pid)
 	}
 
-	return RenderableNodes{id: NewRenderableNodeWith(id, major, minor, "", m)}
+	node := NewRenderableNodeWith(id, major, minor, "", m)
+	node.Children = node.Children.Add(m)
+	return RenderableNodes{id: node}
 }
 
 // MapProcessIdentity maps a process topology node to a process renderable
@@ -410,7 +431,6 @@ func MapIP2Container(n RenderableNode, _ report.Networks) RenderableNodes {
 // must be merged with a process graph to get that info.
 func MapEndpoint2Process(n RenderableNode, _ report.Networks) RenderableNodes {
 	if n.Pseudo {
-		n.Children = n.Children.Add(n)
 		return RenderableNodes{n.ID: n}
 	}
 
@@ -760,21 +780,4 @@ func MapCountPods(n RenderableNode, _ report.Networks) RenderableNodes {
 		n.LabelMinor = fmt.Sprintf("%d pods", pods)
 	}
 	return RenderableNodes{n.ID: n}
-}
-
-// trySplitAddr is basically ParseArbitraryNodeID, since its callsites
-// (pseudo funcs) just have opaque node IDs and don't know what topology they
-// come from. Without changing how pseudo funcs work, we can't make it much
-// smarter.
-//
-// TODO change how pseudofuncs work, and eliminate this helper.
-func trySplitAddr(addr string) (string, string) {
-	fields := strings.SplitN(addr, report.ScopeDelim, 3)
-	if len(fields) == 3 {
-		return fields[1], fields[2]
-	}
-	if len(fields) == 2 {
-		return fields[1], ""
-	}
-	panic(addr)
 }
