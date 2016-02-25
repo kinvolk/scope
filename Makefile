@@ -22,7 +22,8 @@ CODECGEN_TARGETS=report/report.codecgen.go render/render.codecgen.go render/deta
 RM=--rm
 RUN_FLAGS=-ti
 BUILD_IN_CONTAINER=true
-GO ?= env GO15VENDOREXPERIMENT=1 GOGC=off go
+GO_ENVS=GO15VENDOREXPERIMENT=1 GOGC=off
+GO ?= env $(GO_ENVS) go
 GO_BUILD_INSTALL_DEPS=-i
 GO_BUILD_TAGS='netgo unsafe'
 GO_BUILD_FLAGS=$(GO_BUILD_INSTALL_DEPS) -ldflags "-extldflags \"-static\" -X main.version=$(SCOPE_VERSION)" -tags $(GO_BUILD_TAGS)
@@ -79,7 +80,7 @@ $(SCOPE_EXE): $(SCOPE_BACKEND_BUILD_UPTODATE)
 	    }
 
 %.codecgen.go: $(SCOPE_BACKEND_BUILD_UPTODATE)
-	cd $(@D) && env -u GOARCH -u GOOS GOGC=off $(shell pwd)/$(CODECGEN_EXE) -rt $(GO_BUILD_TAGS) -u -o $(@F) $(notdir $(call GET_CODECGEN_DEPS,$(@D)))
+	cd $(@D) && env -u GOARCH -u GOOS $(GO_ENVS) $(shell pwd)/$(CODECGEN_EXE) -rt $(GO_BUILD_TAGS) -u -o $(@F) $(notdir $(call GET_CODECGEN_DEPS,$(@D)))
 
 $(CODECGEN_EXE): $(SCOPE_BACKEND_BUILD_UPTODATE)
 	mkdir -p $(@D)
