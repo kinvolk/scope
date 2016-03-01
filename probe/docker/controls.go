@@ -38,9 +38,14 @@ func (r *registry) restartContainer(containerID string, _ xfer.Request) xfer.Res
 	return xfer.ResponseError(r.client.RestartContainer(containerID, waitTime))
 }
 
+func installTrafficControlContainer(containerID string) error {
+	log.Printf("Installing traffic control qdiscs: %s", containerID)
+	return nil
+}
+
 func (r *registry) pauseContainer(containerID string, _ xfer.Request) xfer.Response {
 	log.Infof("Pausing container %s", containerID)
-	return xfer.ResponseError(r.client.PauseContainer(containerID))
+	return xfer.ResponseError(installTrafficControlContainer(containerID))
 }
 
 func (r *registry) unpauseContainer(containerID string, _ xfer.Request) xfer.Response {
