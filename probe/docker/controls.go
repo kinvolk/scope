@@ -1,9 +1,15 @@
 package docker
 
 import (
+	"net"
+
 	docker_client "github.com/fsouza/go-dockerclient"
 
 	log "github.com/Sirupsen/logrus"
+
+	tcdapi "github.com/kinvolk/tcd/api"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 
 	"github.com/weaveworks/scope/common/xfer"
 	"github.com/weaveworks/scope/probe/controls"
@@ -40,6 +46,51 @@ func (r *registry) restartContainer(containerID string, _ xfer.Request) xfer.Res
 
 func installTrafficControlContainer(containerID string) error {
 	log.Printf("Installing traffic control qdiscs: %s", containerID)
+
+	container := "docker:" + containerID
+
+	conn, err := grpc.Dial("/run/tcd/tcd.sock",
+		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
+			unixAddr, _ := net.ResolveUnixAddr("unix", addr)
+			return net.DialUnix("unix", nil, unixAddr)
+		}),
+		grpc.WithInsecure())
+	if err != nil {
+		return err
+	}
+	c := tcdapi.NewTcdServiceClient(conn)
+	defer conn.Close()
+
+	installResp, err := c.InstallMethod(context.Background(), &tcdapi.InstallRequest{
+		Container: container,
+	})
+	if err != nil {
+		return err
+	}
+	log.Printf("installResp: %v\n", installResp)
+
+	ingressResp, err := c.ConfigureIngressMethod(context.Background(), &tcdapi.ConfigureRequest{
+		Container: os.Args[2],
+		Delay:     30,
+		Loss:      0,
+		Rate:      800000,
+	})
+	if err != nil {
+		return err
+	}
+	log.Printf("ingressResp: %v\n", ingressResp)
+
+	egressResp, err := c.ConfigureEgressMethod(context.Background(), &tcdapi.ConfigureRequest{
+		Container: os.Args[2],
+		Delay:     70,
+		Loss:      0,
+		Rate:      800000,
+	})
+	if err != nil {
+		return err
+	}
+	log.Printf("egressResp: %v\n", egressResp)
+
 	return nil
 }
 
