@@ -1,0 +1,26 @@
+machine:
+  services:
+    - docker
+  environment:
+    CGO_ENABLED: 0
+
+dependencies:
+  override:
+    - go get -d
+    - go build -o bin/tcd -installsuffix cgo
+    - docker build -t kinvolk/tcd .
+
+test:
+  override:
+    - echo "Tests disabled"
+
+deployment:
+  privatehub:
+    branch: master
+    commands:
+      - >
+        test -z "${DOCKER_USER}" || (
+          docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS &&
+          (test "${DOCKER_ORGANIZATION:-$DOCKER_USER}" == "kinvolk" || docker tag kinvolk/tcd:latest ${DOCKER_ORGANIZATION:-$DOCKER_USER}/tcd:latest) &&
+          docker push ${DOCKER_ORGANIZATION:-$DOCKER_USER}/tcd
+        )
