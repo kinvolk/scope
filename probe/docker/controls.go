@@ -72,7 +72,7 @@ func installTrafficControlContainer(containerID string) error {
 
 	ingressResp, err := c.ConfigureIngressMethod(context.Background(), &tcdapi.ConfigureRequest{
 		Container: container,
-		Delay:     30,
+		Delay:     300,
 		Loss:      0,
 		Rate:      800000,
 	})
@@ -83,7 +83,7 @@ func installTrafficControlContainer(containerID string) error {
 
 	egressResp, err := c.ConfigureEgressMethod(context.Background(), &tcdapi.ConfigureRequest{
 		Container: container,
-		Delay:     70,
+		Delay:     500,
 		Loss:      0,
 		Rate:      800000,
 	})
