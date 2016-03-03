@@ -2,6 +2,7 @@ package docker
 
 import (
 	"net"
+	"time"
 
 	docker_client "github.com/fsouza/go-dockerclient"
 
@@ -70,7 +71,7 @@ func installTrafficControlContainer(containerID string) error {
 	log.Printf("installResp: %v\n", installResp)
 
 	ingressResp, err := c.ConfigureIngressMethod(context.Background(), &tcdapi.ConfigureRequest{
-		Container: os.Args[2],
+		Container: container,
 		Delay:     30,
 		Loss:      0,
 		Rate:      800000,
@@ -81,7 +82,7 @@ func installTrafficControlContainer(containerID string) error {
 	log.Printf("ingressResp: %v\n", ingressResp)
 
 	egressResp, err := c.ConfigureEgressMethod(context.Background(), &tcdapi.ConfigureRequest{
-		Container: os.Args[2],
+		Container: container,
 		Delay:     70,
 		Loss:      0,
 		Rate:      800000,
