@@ -368,6 +368,7 @@ func (c *container) GetNode(hostID string, localAddrs []net.IP) report.Node {
 		})
 		result = result.WithControls(
 			RestartContainer, StopContainer, PauseContainer, AttachContainer, ExecContainer,
+			SpeedSlowContainer, SpeedMediumContainer, SpeedFastContainer,
 		)
 	} else {
 		result = result.WithControls(StartContainer)

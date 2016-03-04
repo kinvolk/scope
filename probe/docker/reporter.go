@@ -104,6 +104,21 @@ func (r *Reporter) containerTopology(localAddrs []net.IP) report.Topology {
 		Human: "Exec /bin/sh",
 		Icon:  "fa-terminal",
 	})
+	result.Controls.AddControl(report.Control{
+		ID:    SpeedSlowContainer,
+		Human: "Traffic speed: slow",
+		Icon:  "fa-hourglass-1",
+	})
+	result.Controls.AddControl(report.Control{
+		ID:    SpeedMediumContainer,
+		Human: "Traffic speed: medium",
+		Icon:  "fa-hourglass-2",
+	})
+	result.Controls.AddControl(report.Control{
+		ID:    SpeedFastContainer,
+		Human: "Traffic speed: fast",
+		Icon:  "fa-hourglass-3",
+	})
 
 	metadata := map[string]string{report.ControlProbeID: r.probeID}
 

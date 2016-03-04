@@ -23,8 +23,8 @@ func TestControls(t *testing.T) {
 			{docker.StopContainer, "stopped"},
 			{docker.StartContainer, "started"},
 			{docker.RestartContainer, "restarted"},
-			//{docker.PauseContainer, "paused"},
-			//{docker.UnpauseContainer, "unpaused"},
+			{docker.PauseContainer, "paused"},
+			{docker.UnpauseContainer, "unpaused"},
 		} {
 			result := controls.HandleControlRequest(xfer.Request{
 				Control: tc.command,

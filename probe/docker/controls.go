@@ -19,13 +19,16 @@ import (
 
 // Control IDs used by the docker intergation.
 const (
-	StopContainer    = "docker_stop_container"
-	StartContainer   = "docker_start_container"
-	RestartContainer = "docker_restart_container"
-	PauseContainer   = "docker_pause_container"
-	UnpauseContainer = "docker_unpause_container"
-	AttachContainer  = "docker_attach_container"
-	ExecContainer    = "docker_exec_container"
+	StopContainer        = "docker_stop_container"
+	StartContainer       = "docker_start_container"
+	RestartContainer     = "docker_restart_container"
+	PauseContainer       = "docker_pause_container"
+	UnpauseContainer     = "docker_unpause_container"
+	AttachContainer      = "docker_attach_container"
+	ExecContainer        = "docker_exec_container"
+	SpeedSlowContainer   = "docker_speed1_container"
+	SpeedMediumContainer = "docker_speed2_container"
+	SpeedFastContainer   = "docker_speed3_container"
 
 	waitTime = 10
 )
@@ -45,7 +48,7 @@ func (r *registry) restartContainer(containerID string, _ xfer.Request) xfer.Res
 	return xfer.ResponseError(r.client.RestartContainer(containerID, waitTime))
 }
 
-func installTrafficControlContainer(containerID string) error {
+func installTrafficControlContainer(containerID string, delay, loss, rate uint32) error {
 	log.Printf("Installing traffic control qdiscs: %s", containerID)
 
 	container := "docker:" + containerID
@@ -70,22 +73,22 @@ func installTrafficControlContainer(containerID string) error {
 	}
 	log.Printf("installResp: %v\n", installResp)
 
-	ingressResp, err := c.ConfigureIngressMethod(context.Background(), &tcdapi.ConfigureRequest{
-		Container: container,
-		Delay:     300,
-		Loss:      0,
-		Rate:      800000,
-	})
-	if err != nil {
-		return err
-	}
-	log.Printf("ingressResp: %v\n", ingressResp)
+	//ingressResp, err := c.ConfigureIngressMethod(context.Background(), &tcdapi.ConfigureRequest{
+	//	Container: container,
+	//	Delay:     300,
+	//	Loss:      0,
+	//	Rate:      800000,
+	//})
+	//if err != nil {
+	//	return err
+	//}
+	//log.Printf("ingressResp: %v\n", ingressResp)
 
 	egressResp, err := c.ConfigureEgressMethod(context.Background(), &tcdapi.ConfigureRequest{
 		Container: container,
-		Delay:     500,
-		Loss:      0,
-		Rate:      800000,
+		Delay:     delay,
+		Loss:      loss,
+		Rate:      rate,
 	})
 	if err != nil {
 		return err
@@ -97,7 +100,22 @@ func installTrafficControlContainer(containerID string) error {
 
 func (r *registry) pauseContainer(containerID string, _ xfer.Request) xfer.Response {
 	log.Infof("Pausing container %s", containerID)
-	return xfer.ResponseError(installTrafficControlContainer(containerID))
+	return xfer.ResponseError(r.client.PauseContainer(containerID))
+}
+
+func (r *registry) speedSlowContainer(containerID string, _ xfer.Request) xfer.Response {
+	log.Infof("Setting container speed: slow: %s", containerID)
+	return xfer.ResponseError(installTrafficControlContainer(containerID, 2000, 0, 800000))
+}
+
+func (r *registry) speedMediumContainer(containerID string, _ xfer.Request) xfer.Response {
+	log.Infof("Setting container speed: medium: %s", containerID)
+	return xfer.ResponseError(installTrafficControlContainer(containerID, 300, 0, 800000))
+}
+
+func (r *registry) speedFastContainer(containerID string, _ xfer.Request) xfer.Response {
+	log.Infof("Setting container speed: fast: %s", containerID)
+	return xfer.ResponseError(installTrafficControlContainer(containerID, 1, 0, 800000))
 }
 
 func (r *registry) unpauseContainer(containerID string, _ xfer.Request) xfer.Response {
@@ -215,6 +233,9 @@ func (r *registry) registerControls() {
 	controls.Register(UnpauseContainer, captureContainerID(r.unpauseContainer))
 	controls.Register(AttachContainer, captureContainerID(r.attachContainer))
 	controls.Register(ExecContainer, captureContainerID(r.execContainer))
+	controls.Register(SpeedSlowContainer, captureContainerID(r.speedSlowContainer))
+	controls.Register(SpeedMediumContainer, captureContainerID(r.speedMediumContainer))
+	controls.Register(SpeedFastContainer, captureContainerID(r.speedFastContainer))
 }
 
 func (r *registry) deregisterControls() {
@@ -225,4 +246,7 @@ func (r *registry) deregisterControls() {
 	controls.Rm(UnpauseContainer)
 	controls.Rm(AttachContainer)
 	controls.Rm(ExecContainer)
+	controls.Rm(SpeedSlowContainer)
+	controls.Rm(SpeedMediumContainer)
+	controls.Rm(SpeedFastContainer)
 }
