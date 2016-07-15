@@ -72,10 +72,12 @@ func (nc NodeControls) Copy() NodeControls {
 // Merge returns the newest of the two NodeControls; it does not take the union
 // of the valid Controls.
 func (nc NodeControls) Merge(other NodeControls) NodeControls {
-	if nc.Timestamp.Before(other.Timestamp) {
-		return other
+	cp := nc.Copy()
+	if cp.Timestamp.Before(other.Timestamp) {
+		cp.Timestamp = other.Timestamp
 	}
-	return nc
+	cp.Controls = cp.Controls.Merge(other.Controls)
+	return cp
 }
 
 // Add the new control IDs to this NodeControls, producing a fresh NodeControls.
