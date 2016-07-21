@@ -123,3 +123,69 @@ func (NodeControls) MarshalJSON() ([]byte, error) {
 func (*NodeControls) UnmarshalJSON(b []byte) error {
 	panic("UnmarshalJSON shouldn't be used, use CodecDecodeSelf instead")
 }
+
+type NodeControlData struct {
+	Dead bool `json:"dead,omitempty`
+}
+
+type LatestNodeControls struct {
+	LatestMap LatestMap `json:"latest,omitempty`
+}
+
+var EmptyLatestNodeControls = LatestNodeControls{LatestMap: EmptyLatestMap}
+
+func MakeEmptyLatestNodeControls() LatestNodeControls {
+	return EmptyLatestNodeControls
+}
+
+// Copy makes a copy of LatestNodeControls.
+func (m LatestNodeControls) Copy() LatestNodeControls {
+	return LatestNodeControls{LatestMap: m.LatestMap.Copy()}
+}
+
+// Merge merges the node control setups.
+func (m LatestNodeControls) Merge(other LatestNodeControls) LatestNodeControls {
+	return LatestNodeControls{LatestMap: m.LatestMap.Merge(other.LatestMap)}
+}
+
+// LookupData returns the raw entry for the given key.
+func (m LatestNodeControls) LookupData(control string) (NodeControlData, time.Time, bool) {
+	data := NodeControlData{}
+	value, timestamp, ok := m.LatestMap.LookupEntryExt(control)
+	if value != nil {
+		data = value.(NodeControlData)
+	}
+	return data, timestamp, ok
+}
+
+// LookupData returns the raw entry for the given key.
+func (m LatestNodeControls) Set(key string, timestamp time.Time, data NodeControlData) LatestNodeControls {
+	return LatestNodeControls{LatestMap: m.LatestMap.SetExt(key, timestamp, data)}
+}
+
+// ForEach executes f on each key value pair in the map
+func (m LatestNodeControls) ForEach(fn func(control string, timestamp time.Time, data NodeControlData)) {
+	m.LatestMap.ForEachExt(func(k string, ts time.Time, v interface{}) {
+		fn(k, ts, v.(NodeControlData))
+	})
+}
+
+// CodecEncodeSelf implements codec.Selfer
+func (m *LatestNodeControls) CodecEncodeSelf(encoder *codec.Encoder) {
+	m.LatestMap.CodecEncodeSelf(encoder)
+}
+
+// CodecDecodeSelf implements codec.Selfer
+func (m *LatestNodeControls) CodecDecodeSelf(decoder *codec.Decoder) {
+	m.LatestMap.CodecDecodeSelf(decoder)
+}
+
+// MarshalJSON shouldn't be used, use CodecEncodeSelf instead
+func (LatestNodeControls) MarshalJSON() ([]byte, error) {
+	panic("MarshalJSON shouldn't be used, use CodecEncodeSelf instead")
+}
+
+// UnmarshalJSON shouldn't be used, use CodecDecodeSelf instead
+func (*LatestNodeControls) UnmarshalJSON(b []byte) error {
+	panic("UnmarshalJSON shouldn't be used, use CodecDecodeSelf instead")
+}
