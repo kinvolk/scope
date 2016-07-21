@@ -277,8 +277,8 @@ func (r *Registry) updateAndRegisterControlsInTopology(pluginID string, topology
 	for name, node := range topology.Nodes {
 		log.Debugf("plugins: checking node controls in node %s of %s", name, topology.Label)
 		newNode := node.WithID(name)
-		var nodeControls []string
-		for _, controlID := range node.Controls.Controls {
+		newLatestControls := report.MakeEmptyLatestNodeControls()
+		node.LatestControls.ForEach(func(controlID string, ts time.Time, data report.NodeControlData) {
 			log.Debugf("plugins: got node control %s", controlID)
 			newControlID := ""
 			if _, found := topology.Controls[controlID]; !found {
@@ -288,9 +288,9 @@ func (r *Registry) updateAndRegisterControlsInTopology(pluginID string, topology
 				newControlID = fakeControlID(pluginID, controlID)
 				log.Debugf("plugins: will replace node control %s with %s", controlID, newControlID)
 			}
-			nodeControls = append(nodeControls, newControlID)
-		}
-		newNode.Controls.Controls = report.MakeStringSet(nodeControls...)
+			newLatestControls.Set(newControlID, ts, data)
+		})
+		newNode.LatestControls = newLatestControls
 		newNodes[newNode.ID] = newNode
 	}
 	topology.Controls = newControls

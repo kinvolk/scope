@@ -90,7 +90,7 @@ type topology struct {
 
 type node struct {
 	Metrics  map[string]metric `json:"metrics"`
-	Controls nodeControls `json:"controls"`
+	LatestControls latestNodeControls `json:"latestControls"`
 }
 
 type metric struct {
@@ -104,9 +104,17 @@ type sample struct {
 	Value float64   `json:"value"`
 }
 
-type nodeControls struct {
-	Timestamp time.Time `json:"timestamp,omitempty"`
-	Controls  []string  `json:"controls,omitempty"`
+type latestNodeControls {
+	LatestMap map[string]controlEntry `json:"latest,omitempty`
+}
+
+type controlEntry struct {
+	Timestamp time.Time   `json:"timestamp"`
+	Value     controlData `json:"value"`
+}
+
+type controlData {
+	Dead bool `json:"dead,omitempty`
 }
 
 type metricTemplate struct {
@@ -177,16 +185,22 @@ func (p *Plugin) metrics() (map[string]metric, error) {
 	}
 }
 
-// Get the topology controls and node's controls JSON snippet
-func (p *Plugin) nodeControls() nodeControls {
-	id, _, _ := p.controlDetails()
-	return nodeControls{
-		Timestamp: time.Now(),
-		Controls   []string{id},
+func (p *Plugin) latestNodeControls() latestNodeControls {
+	ts := time.Now()
+	ctrls := map[string]controlEntry{}
+	for _, details := range p.allControlDetails() {
+		ctrls[details.id] = controlEntry {
+			Timestamp: ts,
+			Value: controlData{
+				Dead: details.dead,
+			}
+		}
+	}
+	return latestNodeControls{
+		LatestMap: ctrls
 	}
 }
 
-// Get the metrics and metric_templates JSON snippets
 func (p *Plugin) metricTemplates() map[string]metricTemplate {
 	id, name := p.metricIDAndName()
 	return map[string]metricTemplate{
@@ -199,14 +213,13 @@ func (p *Plugin) metricTemplates() map[string]metricTemplate {
 	}
 }
 
-// Get the topology controls and node's controls JSON snippet
 func (p *Plugin) controls() map[string]control {
-	id, human, icon := p.controlDetails()
-	return map[string]control{
-		id: control{
-			ID: id,
-			Human: human,
-			Icon: icon,
+	ctrls := map[string]control{}
+	for details := range p.allControlDetails() {
+		ctrls[details.id] = control{
+			ID: details.id,
+			Human: details.human,
+			Icon: details.icon,
 			Rank: 1,
 		}
 	}
@@ -295,11 +308,37 @@ func (p *Plugin) metricValue() (float64, error) {
 	return idle()
 }
 
-func (p *Plugin) controlDetails() (string, string, string) {
-	if p.iowaitMode {
-		return "switchToIdle", "Switch to idle", "fa-beer"
+type controlDetails struct {
+	id    string
+	human string
+	icon  string
+	dead  bool
+}
+
+func (p *Plugin) allControlDetails() []controlDetails {
+	return []controlDetails{
+		controlDetails{
+			id:    "switchToIdle",
+			human: "Switch to idle",
+			icon:  "fa-beer",
+			dead:  !p.iowaitMode,
+		},
+		controlDetails{
+			id:    "switchToIOWait",
+			human: "Switch to IO wait",
+			icon:  "fa-hourglass",
+			dead:  p.iowaitMode,
+		}
 	}
-	return "switchToIOWait", "Switch to IO wait", "fa-hourglass"
+}
+
+func (p *Plugin) controlDetails() (string, string, string) {
+	for _, details :=  range p.allControlDetails() {
+		if !details.dead {
+			return details.id, details.human, details.icon
+		}
+	}
+	return "", "", ""
 }
 
 func iowait() (float64, error) {

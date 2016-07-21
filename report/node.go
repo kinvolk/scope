@@ -10,31 +10,33 @@ import (
 // given node in a given topology, along with the edges emanating from the
 // node and metadata about those edges.
 type Node struct {
-	ID        string        `json:"id,omitempty"`
-	Topology  string        `json:"topology,omitempty"`
-	Counters  Counters      `json:"counters,omitempty"`
-	Sets      Sets          `json:"sets,omitempty"`
-	Adjacency IDList        `json:"adjacency"`
-	Edges     EdgeMetadatas `json:"edges,omitempty"`
-	Controls  NodeControls  `json:"controls,omitempty"`
-	Latest    LatestMap     `json:"latest,omitempty"`
-	Metrics   Metrics       `json:"metrics,omitempty"`
-	Parents   Sets          `json:"parents,omitempty"`
-	Children  NodeSet       `json:"children,omitempty"`
+	ID             string             `json:"id,omitempty"`
+	Topology       string             `json:"topology,omitempty"`
+	Counters       Counters           `json:"counters,omitempty"`
+	Sets           Sets               `json:"sets,omitempty"`
+	Adjacency      IDList             `json:"adjacency"`
+	Edges          EdgeMetadatas      `json:"edges,omitempty"`
+//	Controls       NodeControls       `json:"controls,omitempty"`
+	LatestControls LatestNodeControls `json:"latestControls,omitempty"`
+	Latest         LatestMap          `json:"latest,omitempty"`
+	Metrics        Metrics            `json:"metrics,omitempty"`
+	Parents        Sets               `json:"parents,omitempty"`
+	Children       NodeSet            `json:"children,omitempty"`
 }
 
 // MakeNode creates a new Node with no initial metadata.
 func MakeNode(id string) Node {
 	return Node{
-		ID:        id,
-		Counters:  EmptyCounters,
-		Sets:      EmptySets,
-		Adjacency: EmptyIDList,
-		Edges:     EmptyEdgeMetadatas,
-		Controls:  MakeNodeControls(),
-		Latest:    EmptyLatestMap,
-		Metrics:   Metrics{},
-		Parents:   EmptySets,
+		ID:             id,
+		Counters:       EmptyCounters,
+		Sets:           EmptySets,
+		Adjacency:      EmptyIDList,
+		Edges:          EmptyEdgeMetadatas,
+//		Controls:       MakeNodeControls(),
+		LatestControls: MakeEmptyLatestNodeControls(),
+		Latest:         EmptyLatestMap,
+		Metrics:        Metrics{},
+		Parents:        EmptySets,
 	}
 }
 
@@ -140,10 +142,38 @@ func (n Node) WithEdge(dst string, md EdgeMetadata) Node {
 	return result
 }
 
+/*
 // WithControls returns a fresh copy of n, with cs added to Controls.
 func (n Node) WithControls(cs ...string) Node {
 	result := n.Copy()
 	result.Controls = result.Controls.Add(cs...)
+	return result
+}
+*/
+
+// WithLatestControls returns a fresh copy of n, with lcs added to LatestControls.
+func (n Node) WithLatestActiveControls(cs ...string) Node {
+	lcs := map[string]NodeControlData{}
+	for _, control := range cs {
+		lcs[control] = NodeControlData{}
+	}
+	return n.WithLatestControls(lcs)
+}
+
+// WithLatestControls returns a fresh copy of n, with lcs added to LatestControls.
+func (n Node) WithLatestControls(lcs map[string]NodeControlData) Node {
+	result := n.Copy()
+	ts := time.Now()
+	for k, v := range lcs {
+		result.LatestControls = result.LatestControls.Set(k, ts, v)
+	}
+	return result
+}
+
+// WithLatestControl produces a new Node with control added to it
+func (n Node) WithLatestControl(control string, ts time.Time, data NodeControlData) Node {
+	result := n.Copy()
+	result.LatestControls = result.LatestControls.Set(control, ts, data)
 	return result
 }
 
@@ -183,7 +213,7 @@ func (n Node) Copy() Node {
 	cp.Sets = n.Sets.Copy()
 	cp.Adjacency = n.Adjacency.Copy()
 	cp.Edges = n.Edges.Copy()
-	cp.Controls = n.Controls.Copy()
+//	cp.Controls = n.Controls.Copy()
 	cp.Latest = n.Latest.Copy()
 	cp.Metrics = n.Metrics.Copy()
 	cp.Parents = n.Parents.Copy()
@@ -207,7 +237,7 @@ func (n Node) Merge(other Node) Node {
 	cp.Sets = cp.Sets.Merge(other.Sets)
 	cp.Adjacency = cp.Adjacency.Merge(other.Adjacency)
 	cp.Edges = cp.Edges.Merge(other.Edges)
-	cp.Controls = cp.Controls.Merge(other.Controls)
+//	cp.Controls = cp.Controls.Merge(other.Controls)
 	cp.Latest = cp.Latest.Merge(other.Latest)
 	cp.Metrics = cp.Metrics.Merge(other.Metrics)
 	cp.Parents = cp.Parents.Merge(other.Parents)
