@@ -19,12 +19,12 @@ type LatestMap struct {
 
 // LatestEntry represents a timestamped value inside the LatestMap.
 type LatestEntry struct {
-	Timestamp time.Time `json:"timestamp"`
-	Value     string    `json:"value"`
+	Timestamp time.Time   `json:"timestamp"`
+	Value     interface{} `json:"value"`
 }
 
 func (e LatestEntry) String() string {
-	return fmt.Sprintf("\"%s\" (%s)", e.Value, e.Timestamp.String())
+	return fmt.Sprintf("\"%v\" (%s)", e.Value, e.Timestamp.String())
 }
 
 // Equal returns true if the supplied LatestEntry is equal to this one.
@@ -90,25 +90,40 @@ func (m LatestMap) Lookup(key string) (string, bool) {
 	return v, ok
 }
 
-// LookupEntry returns the raw entry for the given key.
-func (m LatestMap) LookupEntry(key string) (string, time.Time, bool) {
+// LookupEntryExt returns the raw entry for the given key.
+func (m LatestMap) LookupEntryExt(key string) (interface{}, time.Time, bool) {
 	if m.Map == nil {
-		return "", time.Time{}, false
+		return nil, time.Time{}, false
 	}
 	value, ok := m.Map.Lookup(key)
 	if !ok {
-		return "", time.Time{}, false
+		return nil, time.Time{}, false
 	}
 	e := value.(LatestEntry)
 	return e.Value, e.Timestamp, true
 }
 
-// Set the value for the given key.
-func (m LatestMap) Set(key string, timestamp time.Time, value string) LatestMap {
+// LookupEntry returns the raw entry for the given key.
+func (m LatestMap) LookupEntry(key string) (string, time.Time, bool) {
+	str := ""
+	value, timestamp, ok := m.LookupEntryExt(key)
+	if value != nil {
+		str = value.(string)
+	}
+	return str, timestamp, ok
+}
+
+// SetExt sets the value for the given key.
+func (m LatestMap) SetExt(key string, timestamp time.Time, value interface{}) LatestMap {
 	if m.Map == nil {
 		m = EmptyLatestMap
 	}
 	return LatestMap{m.Map.Set(key, LatestEntry{timestamp, value})}
+}
+
+// Set the value for the given key.
+func (m LatestMap) Set(key string, timestamp time.Time, value string) LatestMap {
+	return m.SetExt(key, timestamp, value)
 }
 
 // Delete the value for the given key.
@@ -120,12 +135,19 @@ func (m LatestMap) Delete(key string) LatestMap {
 }
 
 // ForEach executes f on each key value pair in the map
-func (m LatestMap) ForEach(fn func(k, v string)) {
+func (m LatestMap) ForEachExt(fn func(k string, ts time.Time, v interface{})) {
 	if m.Map == nil {
 		return
 	}
 	m.Map.ForEach(func(key string, value interface{}) {
-		fn(key, value.(LatestEntry).Value)
+		fn(key, value.(LatestEntry).Timestamp, value.(LatestEntry).Value)
+	})
+}
+
+// ForEach executes f on each key value pair in the map
+func (m LatestMap) ForEach(fn func(k, v string)) {
+	m.ForEachExt(func(key string, _ time.Time, value interface{}) {
+		fn(key, value.(LatestEntry).Value.(string))
 	})
 }
 
