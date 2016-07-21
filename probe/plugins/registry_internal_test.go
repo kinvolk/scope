@@ -455,8 +455,8 @@ func TestRegistryRejectsErroneousPluginResponses(t *testing.T) {
 		}.file(),
 		mockPlugin{
 			t:       t,
-			Name:    "changedId",
-			Handler: stringHandler(http.StatusOK, `{"Plugins":[{"id":"differentId","label":"changedId","interfaces":["reporter"]}]}`),
+			Name:    "changedID",
+			Handler: stringHandler(http.StatusOK, `{"Plugins":[{"id":"differentID","label":"changedID","interfaces":["reporter"]}]}`),
 		}.file(),
 		mockPlugin{
 			t:       t,
@@ -476,9 +476,9 @@ func TestRegistryRejectsErroneousPluginResponses(t *testing.T) {
 	r.Report()
 	checkLoadedPlugins(t, r.ForEach, []xfer.PluginSpec{
 		{
-			ID:     "changedId",
-			Label:  "changedId",
-			Status: `error: plugin must not change its id (is "differentId", should be "changedId")`,
+			ID:     "changedID",
+			Label:  "changedID",
+			Status: `error: plugin must not change its id (is "differentID", should be "changedID")`,
 		},
 		{
 			ID:     "moreThanOnePlugin",
