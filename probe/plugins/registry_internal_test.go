@@ -216,7 +216,7 @@ func TestRegistryLoadsExistingPlugins(t *testing.T) {
 	defer restore(t)
 
 	root := "/plugins"
-	r, err := NewRegistry(root, "1", nil)
+	r, err := NewRegistry(root, "1", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -246,7 +246,7 @@ func TestRegistryLoadsExistingPluginsEvenWhenOneFails(t *testing.T) {
 	defer restore(t)
 
 	root := "/plugins"
-	r, err := NewRegistry(root, "1", nil)
+	r, err := NewRegistry(root, "1", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -274,7 +274,7 @@ func TestRegistryDiscoversNewPlugins(t *testing.T) {
 	defer restore(t)
 
 	root := "/plugins"
-	r, err := NewRegistry(root, "", nil)
+	r, err := NewRegistry(root, "", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -308,7 +308,7 @@ func TestRegistryRemovesPlugins(t *testing.T) {
 	defer restore(t)
 
 	root := "/plugins"
-	r, err := NewRegistry(root, "", nil)
+	r, err := NewRegistry(root, "", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -340,7 +340,7 @@ func TestRegistryUpdatesPluginsWhenTheyChange(t *testing.T) {
 	defer restore(t)
 
 	root := "/plugins"
-	r, err := NewRegistry(root, "", nil)
+	r, err := NewRegistry(root, "", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -380,7 +380,7 @@ func TestRegistryReturnsPluginsByInterface(t *testing.T) {
 	defer restore(t)
 
 	root := "/plugins"
-	r, err := NewRegistry(root, "", nil)
+	r, err := NewRegistry(root, "", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -409,7 +409,7 @@ func TestRegistryHandlesConflictingPlugins(t *testing.T) {
 	defer restore(t)
 
 	root := "/plugins"
-	r, err := NewRegistry(root, "", nil)
+	r, err := NewRegistry(root, "", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -468,7 +468,7 @@ func TestRegistryRejectsErroneousPluginResponses(t *testing.T) {
 	defer restore(t)
 
 	root := "/plugins"
-	r, err := NewRegistry(root, "", nil)
+	r, err := NewRegistry(root, "", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -551,7 +551,7 @@ func TestRegistryRejectsPluginResponsesWhichAreTooLarge(t *testing.T) {
 	}()
 
 	root := "/plugins"
-	r, err := NewRegistry(root, "", nil)
+	r, err := NewRegistry(root, "", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -605,7 +605,7 @@ func TestRegistryChecksForValidPluginIDs(t *testing.T) {
 	defer restore(t)
 
 	root := "/plugins"
-	r, err := NewRegistry(root, "1", nil)
+	r, err := NewRegistry(root, "1", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -742,7 +742,7 @@ func TestRegistryRewritesControlReports(t *testing.T) {
 	defer restore(t)
 
 	root := "/plugins"
-	r, err := NewRegistry(root, "1", nil)
+	r, err := NewRegistry(root, "1", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -777,7 +777,7 @@ func TestRegistryRegistersHandlers(t *testing.T) {
 	defer restore(t)
 
 	root := "/plugins"
-	r, err := NewRegistry(root, "1", nil)
+	r, err := NewRegistry(root, "1", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -827,7 +827,7 @@ func TestRegistryHandlersCallPlugins(t *testing.T) {
 	defer restore(t)
 
 	root := "/plugins"
-	r, err := NewRegistry(root, "1", nil)
+	r, err := NewRegistry(root, "1", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
