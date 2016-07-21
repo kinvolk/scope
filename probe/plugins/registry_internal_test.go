@@ -773,6 +773,14 @@ func TestRegistryRegistersHandlers(t *testing.T) {
 				"/control": {http.StatusOK, mustMarshal(PluginResponse{})},
 			}),
 		}.file(),
+		mockPlugin{
+			t:    t,
+			Name: "testPlugin2",
+			Handler: mapStringHandler(testResponseMap{
+				"/report":  {http.StatusOK, mustMarshal(testReport(topologyWithControls("pod", "node2", []int{1, 2}, []int{1}), pluginSpec("testPlugin2", "reporter", "controller")))},
+				"/control": {http.StatusOK, mustMarshal(PluginResponse{})},
+			}),
+		}.file(),
 	)
 	defer restore(t)
 
@@ -788,11 +796,14 @@ func TestRegistryRegistersHandlers(t *testing.T) {
 	defer controls.ResetHandlerRegistry()
 
 	r.Report()
-	if len(testRegistry) != 1 {
-		t.Fatalf("Expected only one registered handler, got %d", len(testRegistry))
+	expextedLen := 3
+	if len(testRegistry) != expectedLen {
+		t.Fatalf("Expected %d registered handlers, got %d", expectedLen, len(testRegistry))
 	}
 	fakeIDs := []string{
 		fakeControlID("testPlugin", controlID(1)),
+		fakeControlID("testPlugin2", controlID(1)),
+		fakeControlID("testPlugin2", controlID(2)),
 	}
 	for _, fakeID := range fakeIDs {
 		if _, found := testRegistry[fakeID]; !found {
