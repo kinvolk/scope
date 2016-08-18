@@ -73,6 +73,7 @@ func ExtractTableControls(controls Controls, prefix string) (tableControls []Con
 }
 
 // Table is the type for a table in the UI.
+// TODO alepuccetti use Controls instead of []Control. This introduce a regression, it needs more investigation
 type Table struct {
 	ID              string        `json:"id"`
 	Label           string        `json:"label"`

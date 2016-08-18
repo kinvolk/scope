@@ -41,6 +41,11 @@ func (cs Controls) AddControl(c Control) {
 	cs[c.ID] = c
 }
 
+// RemoveControl removes a control by ID
+func (cs Controls) RemoveControl(id string) {
+	delete(cs, id)
+}
+
 // AddControls adds a collection of controls to cs.
 func (cs Controls) AddControls(controls []Control) {
 	for _, c := range controls {

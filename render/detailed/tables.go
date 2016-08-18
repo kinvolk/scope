@@ -14,7 +14,14 @@ func NodeTables(r report.Report, n report.Node) []report.Table {
 	}
 
 	if topology, ok := r.Topology(n.Topology); ok {
-		return topology.TableTemplates.Tables(n, topology.Controls.Copy())
+		table := topology.TableTemplates.Tables(n, topology.Controls.Copy())
+		// Remove table controls from top level controls
+		for _, t := range table {
+			for _, c := range t.Controls {
+				topology.Controls.RemoveControl(c.ID)
+			}
+		}
+		return table
 	}
 	return nil
 }
