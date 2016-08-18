@@ -34,8 +34,8 @@ func (node Node) AddTable(prefix string, labels map[string]string) Node {
 	return node
 }
 
-// ExtractTable returns the key-value pairs with the given prefix from this Node,
-func (node Node) ExtractTable(prefix string) (rows map[string]string, truncationCount int) {
+// ExtractTableRows returns the key-value pairs with the given prefix from this Node,
+func (node Node) ExtractTableRows(prefix string) (rows map[string]string, truncationCount int) {
 	rows = map[string]string{}
 	truncationCount = 0
 	node.Latest.ForEach(func(key string, _ time.Time, value string) {
@@ -52,12 +52,33 @@ func (node Node) ExtractTable(prefix string) (rows map[string]string, truncation
 	return rows, truncationCount
 }
 
+// removePluginTag return the ID without the plugin ID.
+// Plugin ID is prepended with "~" as delimiter
+func removePluginTag(s string) string {
+	if idx := strings.Index(s, "~"); idx != -1 {
+		return s[idx+1:]
+	}
+	return s
+}
+
+// ExtractTableControls return the list of the control associated to the table
+func ExtractTableControls(controls Controls, prefix string) (tableControls []Control) {
+	for _, c := range controls {
+		id := removePluginTag(c.ID)
+		if strings.HasPrefix(id, prefix) {
+			tableControls = append(tableControls, c)
+		}
+	}
+	return tableControls
+}
+
 // Table is the type for a table in the UI.
 type Table struct {
 	ID              string        `json:"id"`
 	Label           string        `json:"label"`
 	Rows            []MetadataRow `json:"rows"`
 	TruncationCount int           `json:"truncationCount,omitempty"`
+	Controls        []Control     `json:"controls,omitempty"`
 }
 
 type tablesByID []Table
@@ -69,12 +90,16 @@ func (t tablesByID) Less(i, j int) bool { return t[i].ID < t[j].ID }
 // Copy returns a copy of the Table.
 func (t Table) Copy() Table {
 	result := Table{
-		ID:    t.ID,
-		Label: t.Label,
-		Rows:  make([]MetadataRow, 0, len(t.Rows)),
+		ID:       t.ID,
+		Label:    t.Label,
+		Rows:     make([]MetadataRow, 0, len(t.Rows)),
+		Controls: make([]Control, 0, len(t.Controls)),
 	}
 	for _, row := range t.Rows {
 		result.Rows = append(result.Rows, row)
+	}
+	for _, control := range t.Controls {
+		result.Controls = append(result.Controls, control)
 	}
 	return result
 }
@@ -113,15 +138,17 @@ func (t TableTemplate) Merge(other TableTemplate) TableTemplate {
 type TableTemplates map[string]TableTemplate
 
 // Tables renders the TableTemplates for a given node.
-func (t TableTemplates) Tables(node Node) []Table {
+func (t TableTemplates) Tables(node Node, controls Controls) []Table {
 	var result []Table
 	for _, template := range t {
-		rows, truncationCount := node.ExtractTable(template.Prefix)
+		rows, truncationCount := node.ExtractTableRows(template.Prefix)
+		tableControls := ExtractTableControls(controls, template.Prefix)
 		table := Table{
 			ID:              template.ID,
 			Label:           template.Label,
 			Rows:            []MetadataRow{},
 			TruncationCount: truncationCount,
+			Controls:        []Control{},
 		}
 		keys := make([]string, 0, len(rows))
 		for k := range rows {
@@ -133,6 +160,14 @@ func (t TableTemplates) Tables(node Node) []Table {
 				ID:    "label_" + key,
 				Label: key,
 				Value: rows[key],
+			})
+		}
+		for _, c := range tableControls {
+			table.Controls = append(table.Controls, Control{
+				ID:    c.ID,
+				Human: c.Human,
+				Icon:  c.Icon,
+				Rank:  c.Rank,
 			})
 		}
 		result = append(result, table)

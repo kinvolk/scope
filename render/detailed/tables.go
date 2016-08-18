@@ -14,7 +14,7 @@ func NodeTables(r report.Report, n report.Node) []report.Table {
 	}
 
 	if topology, ok := r.Topology(n.Topology); ok {
-		return topology.TableTemplates.Tables(n)
+		return topology.TableTemplates.Tables(n, topology.Controls.Copy())
 	}
 	return nil
 }

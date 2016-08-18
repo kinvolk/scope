@@ -17,7 +17,7 @@ func TestTables(t *testing.T) {
 	nmd := report.MakeNode("foo1")
 
 	nmd = nmd.AddTable("foo_", want)
-	have, truncationCount := nmd.ExtractTable("foo_")
+	have, truncationCount := nmd.ExtractTableRows("foo_")
 
 	if truncationCount != 0 {
 		t.Error("Table shouldn't had been truncated")
@@ -40,7 +40,7 @@ func TestTruncation(t *testing.T) {
 	nmd := report.MakeNode("foo1")
 
 	nmd = nmd.AddTable("foo_", want)
-	_, truncationCount := nmd.ExtractTable("foo_")
+	_, truncationCount := nmd.ExtractTableRows("foo_")
 
 	if truncationCount != wantTruncationCount {
 		t.Error(
