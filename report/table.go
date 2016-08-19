@@ -62,24 +62,24 @@ func removePluginTag(s string) string {
 }
 
 // ExtractTableControls return the list of the control associated to the table
-func ExtractTableControls(controls Controls, prefix string) (tableControls []Control) {
-	for _, c := range controls {
+func ExtractTableControls(controls Controls, prefix string) (tableControls Controls) {
+	tableControls = Controls{}
+	for k, c := range controls {
 		id := removePluginTag(c.ID)
 		if strings.HasPrefix(id, prefix) {
-			tableControls = append(tableControls, c)
+			tableControls[k] = c
 		}
 	}
 	return tableControls
 }
 
 // Table is the type for a table in the UI.
-// TODO alepuccetti use Controls instead of []Control. This introduce a regression, it needs more investigation
 type Table struct {
 	ID              string        `json:"id"`
 	Label           string        `json:"label"`
 	Rows            []MetadataRow `json:"rows"`
 	TruncationCount int           `json:"truncationCount,omitempty"`
-	Controls        []Control     `json:"controls,omitempty"`
+	Controls        Controls      `json:"controls,omitempty"`
 }
 
 type tablesByID []Table
@@ -94,13 +94,13 @@ func (t Table) Copy() Table {
 		ID:       t.ID,
 		Label:    t.Label,
 		Rows:     make([]MetadataRow, 0, len(t.Rows)),
-		Controls: make([]Control, 0, len(t.Controls)),
+		Controls: make(Controls),
 	}
 	for _, row := range t.Rows {
 		result.Rows = append(result.Rows, row)
 	}
-	for _, control := range t.Controls {
-		result.Controls = append(result.Controls, control)
+	for k, control := range t.Controls {
+		result.Controls[k] = control
 	}
 	return result
 }
@@ -149,7 +149,7 @@ func (t TableTemplates) Tables(node Node, controls Controls) []Table {
 			Label:           template.Label,
 			Rows:            []MetadataRow{},
 			TruncationCount: truncationCount,
-			Controls:        []Control{},
+			Controls:        Controls{},
 		}
 		keys := make([]string, 0, len(rows))
 		for k := range rows {
@@ -163,13 +163,8 @@ func (t TableTemplates) Tables(node Node, controls Controls) []Table {
 				Value: rows[key],
 			})
 		}
-		for _, c := range tableControls {
-			table.Controls = append(table.Controls, Control{
-				ID:    c.ID,
-				Human: c.Human,
-				Icon:  c.Icon,
-				Rank:  c.Rank,
-			})
+		for k, c := range tableControls {
+			table.Controls[k] = c
 		}
 		result = append(result, table)
 	}
