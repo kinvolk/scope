@@ -41,6 +41,7 @@ type ReporterConfig struct {
 type Reporter struct {
 	conf            ReporterConfig
 	flowWalker      flowWalker // interface
+	ebpfTracker     *EbpfTracker
 	natMapper       natMapper
 	reverseResolver *reverseResolver
 }
@@ -66,6 +67,7 @@ func NewReporter(conf ReporterConfig) *Reporter {
 	return &Reporter{
 		conf:            conf,
 		flowWalker:      newConntrackFlowWalker(conf.UseConntrack, conf.ProcRoot, conf.BufferSize),
+		ebpfTracker:     NewEbpfTracker("/home/asymmetric/code/kinvolk/bcc/examples/tracing/tcpv4tracer.py"),
 		natMapper:       makeNATMapper(newConntrackFlowWalker(conf.UseConntrack, conf.ProcRoot, conf.BufferSize, "--any-nat")),
 		reverseResolver: newReverseResolver(),
 	}
@@ -138,6 +140,23 @@ func (r *Reporter) Report() (report.Report, error) {
 			}
 
 			seenTuples[tuple.key()] = tuple
+			r.addConnection(&rpt, tuple, "", extraNodeInfo, extraNodeInfo)
+		})
+	}
+
+	// eBPF
+	{
+		r.ebpfTracker.WalkEvents(func(e ConnectionEvent) {
+			tuple := fourTuple{
+				e.SourceAddress.String(),
+				e.DestAddress.String(),
+				e.SourcePort,
+				e.DestPort,
+			}
+
+			extraNodeInfo := map[string]string{
+				Conntracked: "true",
+			}
 			r.addConnection(&rpt, tuple, "", extraNodeInfo, extraNodeInfo)
 		})
 	}
