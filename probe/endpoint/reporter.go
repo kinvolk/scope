@@ -67,7 +67,7 @@ func NewReporter(conf ReporterConfig) *Reporter {
 	return &Reporter{
 		conf:            conf,
 		flowWalker:      newConntrackFlowWalker(conf.UseConntrack, conf.ProcRoot, conf.BufferSize),
-		ebpfTracker:     NewEbpfTracker("/home/asymmetric/code/kinvolk/bcc/examples/tracing/tcpv4tracer.py"),
+		ebpfTracker:     NewEbpfTracker("/home/weave/tcpv4tracer.py"),
 		natMapper:       makeNATMapper(newConntrackFlowWalker(conf.UseConntrack, conf.ProcRoot, conf.BufferSize, "--any-nat")),
 		reverseResolver: newReverseResolver(),
 	}
