@@ -166,6 +166,10 @@ func (r *Reporter) Report() (report.Report, error) {
 
 			fromNodeInfo[process.PID] = strconv.Itoa(e.Pid)
 			fromNodeInfo[report.HostNodeID] = hostNodeID
+			switch e.Type {
+			case Connect, Accept:
+				r.addConnection(&rpt, tuple, "", fromNodeInfo, toNodeInfo)
+			}
 
 		})
 	}
