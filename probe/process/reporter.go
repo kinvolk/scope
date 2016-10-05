@@ -106,7 +106,7 @@ func (r *Reporter) processTopology() (report.Topology, error) {
 		node = node.WithMetric(OpenFilesCount, report.MakeSingletonMetric(now, float64(p.OpenFilesCount)).WithMax(float64(p.OpenFilesLimit)))
 
 		t.AddNode(node)
-	})
+	}, false)
 
 	return t, err
 }
