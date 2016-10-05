@@ -19,7 +19,7 @@ func NewTree(walker Walker) (Tree, error) {
 	pt := tree{processes: map[int]Process{}}
 	err := walker.Walk(func(p, _ Process) {
 		pt.processes[p.PID] = p
-	})
+	}, false)
 
 	return &pt, err
 }
