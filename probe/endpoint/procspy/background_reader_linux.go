@@ -54,7 +54,6 @@ func newForegroundReader(walker process.Walker) *backgroundReader {
 
 	log.Info("Waiting for performWalk to send results")
 	result := <-walkc
-	// FIXME we never get here
 	log.Info("got results from performwalk")
 	br.mtx.Lock()
 	br.latestBuf = result.buf
