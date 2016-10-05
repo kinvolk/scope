@@ -5,6 +5,7 @@ package procspy
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"path/filepath"
 	"strconv"
 	"syscall"
@@ -31,11 +32,26 @@ type pidWalker struct {
 	fdBlockSize uint64           // Maximum number of /proc/PID/fd/* files to stat() per tick
 }
 
+// TODO do we need this?
+type unlimitedPidWalker struct {
+	walker process.Walker
+	stopc  chan struct{}
+}
+
 func newPidWalker(walker process.Walker, tickc <-chan time.Time, fdBlockSize uint64) pidWalker {
 	w := pidWalker{
 		walker:      walker,
 		tickc:       tickc,
 		fdBlockSize: fdBlockSize,
+		stopc:       make(chan struct{}),
+	}
+	return w
+}
+
+func newUnlimitedPidWalker(walker process.Walker) pidWalker {
+	w := pidWalker{
+		walker:      walker,
+		fdBlockSize: math.MaxUint64,
 		stopc:       make(chan struct{}),
 	}
 	return w
@@ -214,7 +230,9 @@ func (w pidWalker) walk(buf *bytes.Buffer) (map[uint64]*Proc, error) {
 	// between reading /net/tcp{,6} of each namespace and /proc/PID/fd/* for
 	// the processes living in that namespace.
 
+	log.Info(">> in the walker")
 	w.walker.Walk(func(p, _ process.Process) {
+		log.Info(">>in the anonymous Walk function")
 		dirName := strconv.Itoa(p.PID)
 
 		netNamespacePath := filepath.Join(procRoot, dirName, getNetNamespacePathSuffix())
@@ -224,18 +242,22 @@ func (w pidWalker) walk(buf *bytes.Buffer) (map[uint64]*Proc, error) {
 
 		namespaceID := statT.Ino
 		namespaces[namespaceID] = append(namespaces[namespaceID], &p)
-	})
+	}, true)
 
 	for namespaceID, procs := range namespaces {
+		log.Info("walk: inside namespaces loop")
 		select {
 		case <-w.tickc:
+			log.Info("received message on tickc")
 			w.walkNamespace(namespaceID, buf, sockets, procs)
 		case <-w.stopc:
+			log.Info("received message on stopc")
 			break // abort
 		}
 	}
 
 	metrics.SetGauge(namespaceKey, float32(len(namespaces)))
+	log.Infof("walk: returning socks: %v, and nil", sockets)
 	return sockets, nil
 }
 
