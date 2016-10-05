@@ -140,12 +140,15 @@ func probeMain(flags probeFlags) {
 	var scanner procspy.ConnectionScanner
 	if flags.procEnabled {
 		processCache = process.NewCachingWalker(process.NewWalker(flags.procRoot))
-		scanner = procspy.NewConnectionScanner(processCache)
+		log.Info(">> adding ticker for caching walker")
 		p.AddTicker(processCache)
+		log.Info("Added")
+		scanner = procspy.NewSyncConnectionScanner(processCache)
 		p.AddReporter(process.NewReporter(processCache, hostID, process.GetDeltaTotalJiffies))
 	}
 
 	endpointReporter := endpoint.NewReporter(hostID, hostName, flags.spyProcs, flags.useConntrack, flags.procEnabled, flags.procRoot, scanner)
+	log.Info(">~ created endpoint reporter")
 	defer endpointReporter.Stop()
 	p.AddReporter(endpointReporter)
 
