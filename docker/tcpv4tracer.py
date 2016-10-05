@@ -144,7 +144,10 @@ int kretprobe__tcp_close(struct pt_regs *ctx)
 	u16 family = 0;
 	bpf_probe_read(&family, sizeof(family), &skp->__sk_common.skc_family);
 
-	tcp_event.perf_submit(ctx, &evt, sizeof(evt));
+        // do not send event if source address is 0.0.0.0
+        if (evt.saddr != 0) {
+            tcp_event.perf_submit(ctx, &evt, sizeof(evt));
+        }
 
 	closesock.delete(&pid);
 
