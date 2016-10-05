@@ -44,10 +44,10 @@ func newForegroundReader(walker process.Walker) *backgroundReader {
 		latestSockets: map[uint64]*Proc{},
 	}
 	var (
+		walkc   = make(chan walkResult)
 		ticker  = time.NewTicker(time.Millisecond) // fire every millisecond
 		pWalker = newPidWalker(walker, ticker.C, fdBlockSize)
 	)
-	walkc := make(chan walkResult)
 
 	log.Info(">> in the foreground worker")
 	go performWalk(pWalker, walkc)
