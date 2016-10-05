@@ -32,12 +32,6 @@ type pidWalker struct {
 	fdBlockSize uint64           // Maximum number of /proc/PID/fd/* files to stat() per tick
 }
 
-// TODO do we need this?
-type unlimitedPidWalker struct {
-	walker process.Walker
-	stopc  chan struct{}
-}
-
 func newPidWalker(walker process.Walker, tickc <-chan time.Time, fdBlockSize uint64) pidWalker {
 	w := pidWalker{
 		walker:      walker,
