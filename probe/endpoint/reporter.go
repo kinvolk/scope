@@ -45,6 +45,7 @@ type Reporter struct {
 	ebpfTracker     *EbpfTracker
 	natMapper       natMapper
 	reverseResolver *reverseResolver
+	cachedTopology  report.Topology
 }
 
 // SpyDuration is an exported prometheus metric
@@ -71,6 +72,7 @@ func NewReporter(conf ReporterConfig) *Reporter {
 		ebpfTracker:     NewEbpfTracker("/home/weave/tcpv4tracer.py"),
 		natMapper:       makeNATMapper(newConntrackFlowWalker(conf.UseConntrack, conf.ProcRoot, conf.BufferSize, "--any-nat")),
 		reverseResolver: newReverseResolver(),
+		cachedTopology:  report.MakeTopology(),
 	}
 }
 
@@ -114,6 +116,14 @@ func (r *Reporter) Report() (report.Report, error) {
 
 	hostNodeID := report.MakeHostNodeID(r.conf.HostID)
 	rpt := report.MakeReport()
+	defer func() {
+		r.cachedTopology = rpt.Endpoint.Copy()
+	}()
+
+	if !report.IsEmptyTopology(r.cachedTopology) {
+		rpt.Endpoint = r.cachedTopology
+	}
+
 	seenTuples := map[string]fourTuple{}
 
 	// Consult the flowWalker for short-lived connections
