@@ -144,8 +144,8 @@ int kretprobe__tcp_close(struct pt_regs *ctx)
 	u16 family = 0;
 	bpf_probe_read(&family, sizeof(family), &skp->__sk_common.skc_family);
 
-        // do not send event if source address is 0.0.0.0
-        if (evt.saddr != 0) {
+        // do not send event if IP address is 0.0.0.0 or port is 0
+        if (evt.saddr != 0 && evt.daddr != 0 && evt.sport != 0 && evt.dport != 0) {
             tcp_event.perf_submit(ctx, &evt, sizeof(evt));
         }
 
