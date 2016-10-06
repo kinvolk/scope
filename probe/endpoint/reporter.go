@@ -172,10 +172,7 @@ func (r *Reporter) Report() (report.Report, error) {
 			case Accept:
 				r.addConnection(&rpt, tuple, "", fromNodeInfo, toNodeInfo)
 			case Close:
-				// ignore fake closes
-				if e.SourcePort != 0 && e.DestPort != 0 {
-					r.removeConnection(&rpt, tuple, "", fromNodeInfo, toNodeInfo)
-				}
+				r.removeConnection(&rpt, tuple, "", fromNodeInfo, toNodeInfo)
 			}
 		})
 	}
