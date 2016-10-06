@@ -172,6 +172,8 @@ func (r *Reporter) Report() (report.Report, error) {
 	}
 
 	if r.walkProc {
+		// FIXME this must be parameterized
+		defer func() { r.walkProc = false }()
 		conns, err := r.scanner.Connections(r.spyProcs)
 		if err != nil {
 			return rpt, err
