@@ -28,6 +28,11 @@ func MakeTopology() Topology {
 	}
 }
 
+// IsEmptyTopology returns true if the topology is empty
+func IsEmptyTopology(t Topology) bool {
+	return len(t.Nodes) == 0 && len(t.Controls) == 0
+}
+
 // WithMetadataTemplates merges some metadata templates into this topology,
 // returning a new topology.
 func (t Topology) WithMetadataTemplates(other MetadataTemplates) Topology {

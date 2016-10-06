@@ -35,6 +35,7 @@ type Reporter struct {
 	scanner         procspy.ConnectionScanner
 	natMapper       natMapper
 	reverseResolver *reverseResolver
+	cachedTopology  report.Topology
 }
 
 // SpyDuration is an exported prometheus metric
@@ -65,6 +66,7 @@ func NewReporter(hostID, hostName string, spyProcs, useConntrack, walkProc bool,
 		natMapper:       makeNATMapper(newConntrackFlowWalker(useConntrack, procRoot, "--any-nat")),
 		reverseResolver: newReverseResolver(),
 		scanner:         scanner,
+		cachedTopology:  report.MakeTopology(),
 	}
 }
 
@@ -108,6 +110,14 @@ func (r *Reporter) Report() (report.Report, error) {
 
 	hostNodeID := report.MakeHostNodeID(r.hostID)
 	rpt := report.MakeReport()
+	defer func() {
+		r.cachedTopology = rpt.Endpoint.Copy()
+	}()
+
+	if !report.IsEmptyTopology(r.cachedTopology) {
+		rpt.Endpoint = r.cachedTopology
+	}
+
 	seenTuples := map[string]fourTuple{}
 
 	// Consult the flowWalker for short-lived connections
