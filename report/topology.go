@@ -119,14 +119,6 @@ func (t Topology) AddNode(node Node) Topology {
 	return t
 }
 
-// RemoveNode removes a node from the Topology.
-// The Topology is returned to enable chaining.
-func (t Topology) RemoveNode(node Node) Topology {
-	delete(t.Nodes, node.ID)
-
-	return t
-}
-
 // GetShape returns the current topology shape, or the default if there isn't one.
 func (t Topology) GetShape() string {
 	if t.Shape == "" {
