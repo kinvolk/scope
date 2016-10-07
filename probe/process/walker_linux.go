@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
 	linuxproc "github.com/c9s/goprocinfo/linux"
 
 	"github.com/weaveworks/scope/common/fs"
@@ -87,7 +86,6 @@ func readLimits(path string) (openFilesLimit uint64, err error) {
 // passes one-by-one to the supplied function. Walk is only made public
 // so that is can be tested.
 func (w *walker) Walk(f func(Process, Process), _ bool) error {
-	log.Info(">> in Walk")
 	dirEntries, err := fs.ReadDirNames(w.procRoot)
 	if err != nil {
 		return err
