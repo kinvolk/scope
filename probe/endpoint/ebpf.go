@@ -22,21 +22,19 @@ const (
 	Close
 )
 
-// A ConnectionEvent represents a network connection
-type ConnectionEvent struct {
-	Type          event
-	Pid           int
-	Command       string
-	SourceAddress net.IP
-	DestAddress   net.IP
-	SourcePort    uint16
-	DestPort      uint16
+// A ebpfConnection represents a network connection
+type ebpfConnection struct {
+	tuple    fourTuple
+	outgoing bool
+	pid      int
 }
 
 // EbpfTracker contains the list of eBPF events, and the eBPF script's command
 type EbpfTracker struct {
-	Cmd    *exec.Cmd
-	Events []ConnectionEvent
+	Cmd *exec.Cmd
+
+	activeFlows   map[string]ebpfConnection
+	bufferedFlows []ebpfConnection
 }
 
 // NewEbpfTracker creates a new EbpfTracker
@@ -91,6 +89,8 @@ func (t *EbpfTracker) run() {
 		txt := scn.Text()
 		line := strings.Fields(txt)
 
+		eventStr := line[0]
+
 		pid, err := strconv.Atoi(line[1])
 		if err != nil {
 			log.Errorf("error parsing pid %q: %v", line[1], err)
@@ -123,32 +123,40 @@ func (t *EbpfTracker) run() {
 		}
 		destPort := uint16(dPort)
 
-		var evt event
-		switch line[0] {
+		tuple := fourTuple{sourceAddr.String(), destAddr.String(), sourcePort, destPort}
+
+		switch eventStr {
 		case "connect":
-			evt = Connect
+			conn := ebpfConnection{
+				outgoing: true,
+				tuple:    tuple,
+				pid:      pid,
+			}
+			t.activeFlows[tuple.String()] = conn
 		case "accept":
-			evt = Accept
+			conn := ebpfConnection{
+				outgoing: true,
+				tuple:    tuple,
+				pid:      pid,
+			}
+			t.activeFlows[tuple.String()] = conn
 		case "close":
-			evt = Close
+			if deadConn, ok := t.activeFlows[tuple.String()]; ok {
+				delete(t.activeFlows, tuple.String())
+				t.bufferedFlows = append(t.bufferedFlows, deadConn)
+			}
 		}
 
-		e := ConnectionEvent{
-			Type:          evt,
-			Pid:           pid,
-			SourceAddress: sourceAddr,
-			DestAddress:   destAddr,
-			SourcePort:    sourcePort,
-			DestPort:      destPort,
-		}
-
-		t.Events = append(t.Events, e)
 	}
 }
 
-// WalkEvents - walk through the connectionEvents
-func (t EbpfTracker) WalkEvents(f func(ConnectionEvent)) {
-	for _, event := range t.Events {
-		f(event)
+// WalkConnections - walk through the connectionEvents
+func (t EbpfTracker) WalkConnections(f func(ebpfConnection)) {
+	for _, flow := range t.activeFlows {
+		f(flow)
 	}
+	for _, flow := range t.bufferedFlows {
+		f(flow)
+	}
+	t.bufferedFlows = t.bufferedFlows[:0]
 }

@@ -93,6 +93,10 @@ type fourTuple struct {
 	fromPort, toPort uint16
 }
 
+func (t fourTuple) String() string {
+	return fmt.Sprintf("%s:%d-%s:%d", t.fromAddr, t.fromPort, t.toAddr, t.toPort)
+}
+
 // key is a sortable direction-independent key for tuples, used to look up a
 // fourTuple, when you are unsure of it's direction.
 func (t fourTuple) key() string {
@@ -158,35 +162,19 @@ func (r *Reporter) Report() (report.Report, error) {
 
 	// eBPF
 	if r.ebpfEnabled {
-		fromNodeInfo := map[string]string{
-			// FIXME: remove this
-			Procspied: "true",
-			EBPF:      "true",
-		}
-		toNodeInfo := map[string]string{
-			Procspied: "true",
-			EBPF:      "true",
-		}
-		r.ebpfTracker.WalkEvents(func(e ConnectionEvent) {
-			tuple := fourTuple{
-				e.SourceAddress.String(),
-				e.DestAddress.String(),
-				e.SourcePort,
-				e.DestPort,
+		r.ebpfTracker.WalkConnections(func(e ebpfConnection) {
+			fromNodeInfo := map[string]string{
+				Procspied:         "true",
+				EBPF:              "true",
+				process.PID:       strconv.Itoa(e.pid),
+				report.HostNodeID: hostNodeID,
+			}
+			toNodeInfo := map[string]string{
+				Procspied: "true",
+				EBPF:      "true",
 			}
 
-			fromNodeInfo[process.PID] = strconv.Itoa(e.Pid)
-			fromNodeInfo[report.HostNodeID] = hostNodeID
-			switch e.Type {
-			case Connect:
-				r.addConnection(&rpt, tuple, "", fromNodeInfo, toNodeInfo)
-			// TODO the node that ACCEPTs is at the receving end of hte connection
-			// so maybe we should not add a new node?
-			case Accept:
-				r.addConnection(&rpt, tuple, "", fromNodeInfo, toNodeInfo)
-			case Close:
-				r.removeConnection(&rpt, tuple, "", fromNodeInfo, toNodeInfo)
-			}
+			r.addConnection(&rpt, e.tuple, "", fromNodeInfo, toNodeInfo)
 		})
 	}
 
@@ -241,17 +229,6 @@ func (r *Reporter) addConnection(rpt *report.Report, t fourTuple, namespaceID st
 	)
 	rpt.Endpoint = rpt.Endpoint.AddNode(fromNode.WithEdge(toNode.ID, report.EdgeMetadata{}))
 	rpt.Endpoint = rpt.Endpoint.AddNode(toNode)
-}
-
-func (r *Reporter) removeConnection(rpt *report.Report, t fourTuple, namespaceID string, extraFromNode, extraToNode map[string]string) {
-	// create node from tuple
-	var (
-		fromNode = r.makeEndpointNode(namespaceID, t.fromAddr, t.fromPort, extraFromNode)
-		toNode   = r.makeEndpointNode(namespaceID, t.toAddr, t.toPort, extraToNode)
-	)
-	// check
-	rpt.Endpoint.RemoveNode(fromNode)
-	rpt.Endpoint.RemoveNode(toNode)
 }
 
 func (r *Reporter) makeEndpointNode(namespaceID string, addr string, port uint16, extra map[string]string) report.Node {
