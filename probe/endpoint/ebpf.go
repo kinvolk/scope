@@ -15,6 +15,7 @@ import (
 // A ebpfConnection represents a network connection
 type ebpfConnection struct {
 	tuple    fourTuple
+	netns    string
 	outgoing bool
 	pid      int
 }
@@ -22,8 +23,10 @@ type ebpfConnection struct {
 // EbpfTracker contains the list of eBPF events, and the eBPF script's command
 type EbpfTracker struct {
 	sync.Mutex
-	cmd  *exec.Cmd
-	dead bool
+	cmd *exec.Cmd
+
+	initialized bool
+	dead        bool
 
 	activeFlows   map[string]ebpfConnection
 	bufferedFlows []ebpfConnection
@@ -50,7 +53,7 @@ func NewEbpfTracker(bccProgramPath string) *EbpfTracker {
 	return tracker
 }
 
-func (t *EbpfTracker) handleFlow(eventStr string, tuple fourTuple, pid int) {
+func (t *EbpfTracker) handleFlow(eventStr string, tuple fourTuple, pid int, netns string) {
 	t.Lock()
 	defer t.Unlock()
 
@@ -61,6 +64,7 @@ func (t *EbpfTracker) handleFlow(eventStr string, tuple fourTuple, pid int) {
 			outgoing: true,
 			tuple:    tuple,
 			pid:      pid,
+			netns:    netns,
 		}
 		t.activeFlows[tuple.String()] = conn
 	case "accept":
@@ -69,6 +73,7 @@ func (t *EbpfTracker) handleFlow(eventStr string, tuple fourTuple, pid int) {
 			outgoing: true,
 			tuple:    tuple,
 			pid:      pid,
+			netns:    netns,
 		}
 		t.activeFlows[tuple.String()] = conn
 	case "close":
@@ -119,6 +124,11 @@ func (t *EbpfTracker) run() {
 		txt := scn.Text()
 		line := strings.Fields(txt)
 
+		if len(line) != 7 {
+			log.Errorf("error parsing line %q", txt)
+			continue
+		}
+
 		eventStr := line[0]
 
 		pid, err := strconv.Atoi(line[1])
@@ -153,9 +163,11 @@ func (t *EbpfTracker) run() {
 		}
 		destPort := uint16(dPort)
 
+		netns := line[6]
+
 		tuple := fourTuple{sourceAddr.String(), destAddr.String(), sourcePort, destPort}
 
-		t.handleFlow(eventStr, tuple, pid)
+		t.handleFlow(eventStr, tuple, pid, netns)
 	}
 }
 
