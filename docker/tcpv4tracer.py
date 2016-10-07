@@ -193,7 +193,6 @@ int kretprobe__inet_csk_accept(struct pt_regs *ctx)
 }
 """
 
-TASK_COMM_LEN = 16   # linux/sched.h
 class TCPEvt(ctypes.Structure):
 	_fields_ = [
 		("type", ctypes.c_char * 12),
@@ -206,11 +205,12 @@ class TCPEvt(ctypes.Structure):
 
 def print_event(cpu, data, size):
 	event = ctypes.cast(data, ctypes.POINTER(TCPEvt)).contents
-	print("%-12s %-6s %-16s %-16s %-16s %-6s %-6s" % (event.type.decode('utf-8'), event.pid, " ",
+	print("%s %s %s %s %s %s %s" % (event.type.decode('utf-8'), event.pid,
 	    inet_ntoa(event.saddr),
 	    inet_ntoa(event.daddr),
 	    event.sport,
 	    event.dport,
+	    "unknown",
 	    ))
 
 if args.pid:
@@ -223,8 +223,7 @@ else:
 b = BPF(text=bpf_text)
 
 # header
-print("%-12s %-6s %-16s %-16s %-16s %-6s %-6s" % ("TYPE", "PID", "COMM", "SADDR", "DADDR",
-    "SPORT", "DPORT"))
+print("TYPE PID SADDR DADDR SPORT DPORT NETNS")
 
 def inet_ntoa(addr):
 	dq = ''

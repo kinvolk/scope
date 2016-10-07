@@ -12,6 +12,8 @@ import (
 	"github.com/weaveworks/scope/probe/endpoint/procspy"
 	"github.com/weaveworks/scope/probe/process"
 	"github.com/weaveworks/scope/report"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 // Node metadata keys.
@@ -174,6 +176,10 @@ func (r *Reporter) Report() (report.Report, error) {
 				namespaceID = strconv.FormatUint(conn.Proc.NetNamespaceID, 10)
 			}
 
+			if r.ebpfEnabled && !r.ebpfTracker.initialized {
+				r.ebpfTracker.handleFlow("connect", tuple, int(conn.Proc.PID), namespaceID)
+			}
+
 			// If we've already seen this connection, we should know the direction
 			// (or have already figured it out), so we normalize and use the
 			// canonical direction. Otherwise, we can use a port-heuristic to guess
@@ -185,10 +191,12 @@ func (r *Reporter) Report() (report.Report, error) {
 			}
 			r.addConnection(&rpt, tuple, namespaceID, fromNodeInfo, toNodeInfo)
 		}
+		r.ebpfTracker.initialized = true
 	}
 
 	// eBPF
 	if r.ebpfEnabled && !r.ebpfTracker.hasDied() {
+		log.Infof("reporter: generating eBPF report")
 		r.ebpfTracker.walkFlows(func(e ebpfConnection) {
 			fromNodeInfo := map[string]string{
 				Procspied:         "true",
@@ -201,8 +209,10 @@ func (r *Reporter) Report() (report.Report, error) {
 				EBPF:      "true",
 			}
 
-			r.addConnection(&rpt, e.tuple, "", fromNodeInfo, toNodeInfo)
+			r.addConnection(&rpt, e.tuple, e.netns, fromNodeInfo, toNodeInfo)
+			log.Infof("reporter: adding %s", e.tuple.String())
 		})
+		log.Infof("reporter: generating eBPF report done")
 	}
 
 	r.natMapper.applyNAT(rpt, r.hostID)
