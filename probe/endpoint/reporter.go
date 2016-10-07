@@ -32,6 +32,7 @@ type ReporterConfig struct {
 	SpyProcs     bool
 	UseConntrack bool
 	WalkProc     bool
+	EbpfEnabled  bool
 	ProcRoot     string
 	BufferSize   int
 	Scanner      procspy.ConnectionScanner
@@ -188,9 +189,8 @@ func (r *Reporter) Report() (report.Report, error) {
 	}
 
 	if r.conf.WalkProc {
-		// FIXME this must be parameterized
-		defer func() { r.walkProc = false }()
 		conns, err := r.conf.Scanner.Connections(r.conf.SpyProcs)
+		defer r.procParsingSwitcher()
 		if err != nil {
 			return rpt, err
 		}
@@ -271,4 +271,12 @@ func (r *Reporter) makeEndpointNode(namespaceID string, addr string, port uint16
 
 func newu64(i uint64) *uint64 {
 	return &i
+}
+
+// procParsingSwitcher make sure that if eBPF tracking is enabled,
+// connections coming from /proc parsing are only walked once.
+func (r *Reporter) procParsingSwitcher() {
+	if r.walkProc && r.ebpfEnabled {
+		r.walkProc = false
+	}
 }
