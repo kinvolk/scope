@@ -30,6 +30,8 @@ type Reporter struct {
 	hostName        string
 	spyProcs        bool
 	walkProc        bool
+	ebpfEnabled     bool
+	procWalked      bool
 	flowWalker      flowWalker // interface
 	ebpfTracker     *EbpfTracker
 	scanner         procspy.ConnectionScanner
@@ -55,12 +57,13 @@ var SpyDuration = prometheus.NewSummaryVec(
 // on the host machine, at the granularity of host and port. That information
 // is stored in the Endpoint topology. It optionally enriches that topology
 // with process (PID) information.
-func NewReporter(hostID, hostName string, spyProcs, useConntrack, walkProc bool, procRoot string, scanner procspy.ConnectionScanner) *Reporter {
+func NewReporter(hostID, hostName string, spyProcs, useConntrack, walkProc, ebpfEnabled bool, procRoot string, scanner procspy.ConnectionScanner) *Reporter {
 	return &Reporter{
 		hostID:          hostID,
 		hostName:        hostName,
 		spyProcs:        spyProcs,
 		walkProc:        walkProc,
+		ebpfEnabled:     ebpfEnabled,
 		flowWalker:      newConntrackFlowWalker(useConntrack, procRoot),
 		ebpfTracker:     NewEbpfTracker("/home/weave/tcpv4tracer.py"),
 		natMapper:       makeNATMapper(newConntrackFlowWalker(useConntrack, procRoot, "--any-nat")),
@@ -150,7 +153,7 @@ func (r *Reporter) Report() (report.Report, error) {
 	}
 
 	// eBPF
-	{
+	if r.ebpfEnabled {
 		fromNodeInfo := map[string]string{
 			// FIXME: remove this
 			Procspied: "true",
@@ -184,8 +187,7 @@ func (r *Reporter) Report() (report.Report, error) {
 	}
 
 	if r.walkProc {
-		// FIXME this must be parameterized
-		defer func() { r.walkProc = false }()
+		defer r.procParsingSwitcher()
 		conns, err := r.scanner.Connections(r.spyProcs)
 		if err != nil {
 			return rpt, err
@@ -266,4 +268,12 @@ func (r *Reporter) makeEndpointNode(namespaceID string, addr string, port uint16
 
 func newu64(i uint64) *uint64 {
 	return &i
+}
+
+// procParsingSwitcher make sure that if eBPF tracking is enabled,
+// connections coming from /proc parsing are only walked once.
+func (r *Reporter) procParsingSwitcher() {
+	if r.walkProc && r.ebpfEnabled {
+		r.walkProc = false
+	}
 }

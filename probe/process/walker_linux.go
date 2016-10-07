@@ -85,7 +85,7 @@ func readLimits(path string) (openFilesLimit uint64, err error) {
 // and marshalls the files into instances of Process, which it then
 // passes one-by-one to the supplied function. Walk is only made public
 // so that is can be tested.
-func (w *walker) Walk(f func(Process, Process), _ bool) error {
+func (w *walker) Walk(f func(Process, Process)) error {
 	dirEntries, err := fs.ReadDirNames(w.procRoot)
 	if err != nil {
 		return err
