@@ -1,7 +1,6 @@
 package process
 
 import "sync"
-import log "github.com/Sirupsen/logrus"
 
 // Process represents a single process.
 type Process struct {
@@ -41,25 +40,19 @@ func (*CachingWalker) Name() string { return "Process" }
 // Walk walks a cached copy of process list
 func (c *CachingWalker) Walk(f func(Process, Process), sync bool) error {
 	if sync {
-		log.Info(">>> sync walker")
 		c.Tick()
-	} else {
-		log.Info(">> in the Async caching walker")
 	}
 
 	c.cacheLock.RLock()
 	defer c.cacheLock.RUnlock()
-	log.Infof(">> Walk: len c.cache %v", len(c.cache))
 	for _, p := range c.cache {
 		f(p, c.previousByPID[p.PID])
 	}
-	log.Info("Walk: returning nil")
 	return nil
 }
 
 // Tick updates cached copy of process list
 func (c *CachingWalker) Tick() error {
-	log.Info("! tick")
 	newCache := map[int]Process{}
 	err := c.source.Walk(func(p, _ Process) {
 		newCache[p.PID] = p
