@@ -14,8 +14,11 @@ import (
 type event int
 
 const (
+	// Connect is a TCP CONNECT event
 	Connect event = iota
+	// Accept is a TCP ACCEPT event
 	Accept
+	// Close is a TCP CLOSE event
 	Close
 )
 
@@ -30,11 +33,13 @@ type ConnectionEvent struct {
 	DestPort      uint16
 }
 
+// EbpfTracker contains the list of eBPF events, and the eBPF script's command
 type EbpfTracker struct {
 	Cmd    *exec.Cmd
 	Events []ConnectionEvent
 }
 
+// NewEbpfTracker creates a new EbpfTracker
 func NewEbpfTracker(bccProgramPath string) *EbpfTracker {
 	cmd := exec.Command(bccProgramPath)
 	env := os.Environ()
