@@ -119,6 +119,8 @@ func (t Topology) AddNode(node Node) Topology {
 	return t
 }
 
+// RemoveNode removes a node from the Topology.
+// The Topology is returned to enable chaining.
 func (t Topology) RemoveNode(node Node) Topology {
 	delete(t.Nodes, node.ID)
 
