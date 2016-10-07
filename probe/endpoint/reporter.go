@@ -37,7 +37,6 @@ type Reporter struct {
 	scanner         procspy.ConnectionScanner
 	natMapper       natMapper
 	reverseResolver *reverseResolver
-	cachedTopology  report.Topology
 }
 
 // SpyDuration is an exported prometheus metric
@@ -69,7 +68,6 @@ func NewReporter(hostID, hostName string, spyProcs, useConntrack, walkProc, ebpf
 		natMapper:       makeNATMapper(newConntrackFlowWalker(useConntrack, procRoot, "--any-nat")),
 		reverseResolver: newReverseResolver(),
 		scanner:         scanner,
-		cachedTopology:  report.MakeTopology(),
 	}
 }
 
@@ -117,13 +115,6 @@ func (r *Reporter) Report() (report.Report, error) {
 
 	hostNodeID := report.MakeHostNodeID(r.hostID)
 	rpt := report.MakeReport()
-	defer func() {
-		r.cachedTopology = rpt.Endpoint.Copy()
-	}()
-
-	if !report.IsEmptyTopology(r.cachedTopology) {
-		rpt.Endpoint = r.cachedTopology
-	}
 
 	seenTuples := map[string]fourTuple{}
 
@@ -153,24 +144,6 @@ func (r *Reporter) Report() (report.Report, error) {
 
 			seenTuples[tuple.key()] = tuple
 			r.addConnection(&rpt, tuple, "", extraNodeInfo, extraNodeInfo)
-		})
-	}
-
-	// eBPF
-	if r.ebpfEnabled {
-		r.ebpfTracker.WalkConnections(func(e ebpfConnection) {
-			fromNodeInfo := map[string]string{
-				Procspied:         "true",
-				EBPF:              "true",
-				process.PID:       strconv.Itoa(e.pid),
-				report.HostNodeID: hostNodeID,
-			}
-			toNodeInfo := map[string]string{
-				Procspied: "true",
-				EBPF:      "true",
-			}
-
-			r.addConnection(&rpt, e.tuple, "", fromNodeInfo, toNodeInfo)
 		})
 	}
 
@@ -212,6 +185,24 @@ func (r *Reporter) Report() (report.Report, error) {
 			}
 			r.addConnection(&rpt, tuple, namespaceID, fromNodeInfo, toNodeInfo)
 		}
+	}
+
+	// eBPF
+	if r.ebpfEnabled && !r.ebpfTracker.hasDied() {
+		r.ebpfTracker.walkFlows(func(e ebpfConnection) {
+			fromNodeInfo := map[string]string{
+				Procspied:         "true",
+				EBPF:              "true",
+				process.PID:       strconv.Itoa(e.pid),
+				report.HostNodeID: hostNodeID,
+			}
+			toNodeInfo := map[string]string{
+				Procspied: "true",
+				EBPF:      "true",
+			}
+
+			r.addConnection(&rpt, e.tuple, "", fromNodeInfo, toNodeInfo)
+		})
 	}
 
 	r.natMapper.applyNAT(rpt, r.hostID)
