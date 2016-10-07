@@ -7,19 +7,9 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 
 	log "github.com/Sirupsen/logrus"
-)
-
-type event int
-
-const (
-	// Connect is a TCP CONNECT event
-	Connect event = iota
-	// Accept is a TCP ACCEPT event
-	Accept
-	// Close is a TCP CLOSE event
-	Close
 )
 
 // A ebpfConnection represents a network connection
@@ -31,7 +21,9 @@ type ebpfConnection struct {
 
 // EbpfTracker contains the list of eBPF events, and the eBPF script's command
 type EbpfTracker struct {
-	Cmd *exec.Cmd
+	sync.Mutex
+	cmd  *exec.Cmd
+	dead bool
 
 	activeFlows   map[string]ebpfConnection
 	bufferedFlows []ebpfConnection
@@ -45,44 +37,82 @@ func NewEbpfTracker(bccProgramPath string) *EbpfTracker {
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		log.Errorf("bcc error: %v", err)
+		log.Errorf("EbpfTracker error: %v", err)
 		return nil
 	}
-	go logPipe("bcc stderr:", stderr)
+	go logPipe("EbpfTracker stderr:", stderr)
 
 	tracker := &EbpfTracker{
-		Cmd: cmd,
+		cmd:         cmd,
+		activeFlows: map[string]ebpfConnection{},
 	}
 	go tracker.run()
 	return tracker
 }
 
+func (t *EbpfTracker) handleFlow(eventStr string, tuple fourTuple, pid int) {
+	t.Lock()
+	defer t.Unlock()
+
+	switch eventStr {
+	case "connect":
+		log.Infof("EbpfTracker: connect: %s pid=%v", tuple.String(), pid)
+		conn := ebpfConnection{
+			outgoing: true,
+			tuple:    tuple,
+			pid:      pid,
+		}
+		t.activeFlows[tuple.String()] = conn
+	case "accept":
+		log.Infof("EbpfTracker: accept: %s pid=%v", tuple.String(), pid)
+		conn := ebpfConnection{
+			outgoing: true,
+			tuple:    tuple,
+			pid:      pid,
+		}
+		t.activeFlows[tuple.String()] = conn
+	case "close":
+		log.Infof("EbpfTracker: close: %s pid=%v", tuple.String(), pid)
+		if deadConn, ok := t.activeFlows[tuple.String()]; ok {
+			delete(t.activeFlows, tuple.String())
+			t.bufferedFlows = append(t.bufferedFlows, deadConn)
+		} else {
+			log.Errorf("EbpfTracker error: unmatched close event")
+		}
+	}
+
+}
+
 func (t *EbpfTracker) run() {
-	stdout, err := t.Cmd.StdoutPipe()
+	stdout, err := t.cmd.StdoutPipe()
 	if err != nil {
-		log.Errorf("conntrack error: %v", err)
+		log.Errorf("EbpfTracker error: %v", err)
 		return
 	}
 
-	if err := t.Cmd.Start(); err != nil {
-		log.Errorf("bcc error: %v", err)
+	if err := t.cmd.Start(); err != nil {
+		log.Errorf("EbpfTracker error: %v", err)
 		return
 	}
 
 	defer func() {
-		if err := t.Cmd.Wait(); err != nil {
-			log.Errorf("bcc error: %v", err)
+		if err := t.cmd.Wait(); err != nil {
+			log.Errorf("EbpfTracker error: %v", err)
 		}
+
+		t.Lock()
+		t.dead = true
+		t.Unlock()
 	}()
 
 	reader := bufio.NewReader(stdout)
 	// skip fist line
 	if _, err := reader.ReadString('\n'); err != nil {
-		log.Errorf("bcc error: %v", err)
+		log.Errorf("EbpfTracker error: %v", err)
 		return
 	}
 
-	defer log.Infof("bcc exiting")
+	defer log.Infof("EbpfTracker exiting")
 
 	scn := bufio.NewScanner(reader)
 	for scn.Scan() {
@@ -125,33 +155,18 @@ func (t *EbpfTracker) run() {
 
 		tuple := fourTuple{sourceAddr.String(), destAddr.String(), sourcePort, destPort}
 
-		switch eventStr {
-		case "connect":
-			conn := ebpfConnection{
-				outgoing: true,
-				tuple:    tuple,
-				pid:      pid,
-			}
-			t.activeFlows[tuple.String()] = conn
-		case "accept":
-			conn := ebpfConnection{
-				outgoing: true,
-				tuple:    tuple,
-				pid:      pid,
-			}
-			t.activeFlows[tuple.String()] = conn
-		case "close":
-			if deadConn, ok := t.activeFlows[tuple.String()]; ok {
-				delete(t.activeFlows, tuple.String())
-				t.bufferedFlows = append(t.bufferedFlows, deadConn)
-			}
-		}
-
+		t.handleFlow(eventStr, tuple, pid)
 	}
 }
 
-// WalkConnections - walk through the connectionEvents
-func (t EbpfTracker) WalkConnections(f func(ebpfConnection)) {
+// walkFlows calls f with all active flows and flows that have come and gone
+// since the last call to walkFlows
+func (t *EbpfTracker) walkFlows(f func(ebpfConnection)) {
+	t.Lock()
+	defer t.Unlock()
+
+	log.Infof("EbpfTracker: WalkConnections activeFlows: %d bufferedFlows: %d", len(t.activeFlows), len(t.bufferedFlows))
+
 	for _, flow := range t.activeFlows {
 		f(flow)
 	}
@@ -159,4 +174,11 @@ func (t EbpfTracker) WalkConnections(f func(ebpfConnection)) {
 		f(flow)
 	}
 	t.bufferedFlows = t.bufferedFlows[:0]
+}
+
+func (t *EbpfTracker) hasDied() bool {
+	t.Lock()
+	defer t.Unlock()
+
+	return t.dead
 }
