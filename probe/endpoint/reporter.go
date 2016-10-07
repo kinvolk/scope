@@ -173,6 +173,8 @@ func (r *Reporter) Report() (report.Report, error) {
 			switch e.Type {
 			case Connect:
 				r.addConnection(&rpt, tuple, "", fromNodeInfo, toNodeInfo)
+			// TODO the node that ACCEPTs is at the receving end of hte connection
+			// so maybe we should not add a new node?
 			case Accept:
 				r.addConnection(&rpt, tuple, "", fromNodeInfo, toNodeInfo)
 			case Close:
