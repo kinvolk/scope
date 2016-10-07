@@ -153,7 +153,7 @@ func (r *Reporter) Report() (report.Report, error) {
 	}
 
 	// eBPF
-	{
+	if r.ebpfEnabled {
 		fromNodeInfo := map[string]string{
 			// FIXME: remove this
 			Procspied: "true",
