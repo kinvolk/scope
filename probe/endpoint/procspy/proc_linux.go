@@ -236,7 +236,7 @@ func (w pidWalker) walk(buf *bytes.Buffer) (map[uint64]*Proc, error) {
 
 		namespaceID := statT.Ino
 		namespaces[namespaceID] = append(namespaces[namespaceID], &p)
-	}, true)
+	})
 
 	for namespaceID, procs := range namespaces {
 		log.Info("walk: inside namespaces loop")

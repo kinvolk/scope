@@ -17,7 +17,7 @@ type Process struct {
 
 // Walker is something that walks the /proc directory
 type Walker interface {
-	Walk(func(Process, Process), bool) error
+	Walk(func(Process, Process)) error
 }
 
 // CachingWalker is a walker than caches a copy of the output from another
@@ -38,8 +38,8 @@ func NewCachingWalker(source Walker) *CachingWalker {
 func (*CachingWalker) Name() string { return "Process" }
 
 // Walk walks a cached copy of process list
-func (c *CachingWalker) Walk(f func(Process, Process), sync bool) error {
-	if sync {
+func (c *CachingWalker) Walk(f func(Process, Process)) error {
+	if len(c.cache) == 0 {
 		c.Tick()
 	}
 
@@ -56,7 +56,7 @@ func (c *CachingWalker) Tick() error {
 	newCache := map[int]Process{}
 	err := c.source.Walk(func(p, _ Process) {
 		newCache[p.PID] = p
-	}, false)
+	})
 
 	if err != nil {
 		return err
