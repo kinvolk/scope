@@ -141,11 +141,16 @@ func probeMain(flags probeFlags) {
 	if flags.procEnabled {
 		processCache = process.NewCachingWalker(process.NewWalker(flags.procRoot))
 		p.AddTicker(processCache)
-		scanner = procspy.NewSyncConnectionScanner(processCache)
+		// if eBPF tracking is enabled, scan /proc synchronously, and just once
+		if flags.ebpfEnabled {
+			scanner = procspy.NewSyncConnectionScanner(processCache)
+		} else {
+			scanner = procspy.NewConnectionScanner(processCache)
+		}
 		p.AddReporter(process.NewReporter(processCache, hostID, process.GetDeltaTotalJiffies))
 	}
 
-	endpointReporter := endpoint.NewReporter(hostID, hostName, flags.spyProcs, flags.useConntrack, flags.procEnabled, flags.procRoot, scanner)
+	endpointReporter := endpoint.NewReporter(hostID, hostName, flags.spyProcs, flags.useConntrack, flags.procEnabled, flags.ebpfEnabled, flags.procRoot, scanner)
 	defer endpointReporter.Stop()
 	p.AddReporter(endpointReporter)
 
