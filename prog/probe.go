@@ -140,9 +140,7 @@ func probeMain(flags probeFlags, targets []appclient.Target) {
 	var scanner procspy.ConnectionScanner
 	if flags.procEnabled {
 		processCache = process.NewCachingWalker(process.NewWalker(flags.procRoot))
-		log.Info(">> adding ticker for caching walker")
 		p.AddTicker(processCache)
-		log.Info("Added")
 		scanner = procspy.NewSyncConnectionScanner(processCache)
 		p.AddReporter(process.NewReporter(processCache, hostID, process.GetDeltaTotalJiffies))
 	}
@@ -165,7 +163,6 @@ func probeMain(flags probeFlags, targets []appclient.Target) {
 		Scanner:      scanner,
 		DNSSnooper:   dnsSnooper,
 	})
-	log.Info(">~ created endpoint reporter")
 	defer endpointReporter.Stop()
 	p.AddReporter(endpointReporter)
 
