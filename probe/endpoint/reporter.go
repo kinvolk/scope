@@ -215,7 +215,7 @@ func (r *Reporter) Report() (report.Report, error) {
 			}
 
 			r.addConnection(&rpt, e.tuple, e.netns, fromNodeInfo, toNodeInfo)
-			log.Infof("reporter: adding %s", e.tuple.String())
+			log.Infof("reporter: adding %s netns=%s", e.tuple.String(), e.netns)
 		})
 		log.Infof("reporter: generating eBPF report done")
 	}
