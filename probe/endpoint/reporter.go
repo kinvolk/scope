@@ -1,10 +1,7 @@
 package endpoint
 
 import (
-	"fmt"
-	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -82,31 +79,6 @@ func (r *Reporter) Stop() {
 	r.natMapper.stop()
 	r.reverseResolver.stop()
 	r.scanner.Stop()
-}
-
-type fourTuple struct {
-	fromAddr, toAddr string
-	fromPort, toPort uint16
-}
-
-func (t fourTuple) String() string {
-	return fmt.Sprintf("%s:%d-%s:%d", t.fromAddr, t.fromPort, t.toAddr, t.toPort)
-}
-
-// key is a sortable direction-independent key for tuples, used to look up a
-// fourTuple, when you are unsure of it's direction.
-func (t fourTuple) key() string {
-	key := []string{
-		fmt.Sprintf("%s:%d", t.fromAddr, t.fromPort),
-		fmt.Sprintf("%s:%d", t.toAddr, t.toPort),
-	}
-	sort.Strings(key)
-	return strings.Join(key, " ")
-}
-
-// reverse flips the direction of the tuple
-func (t *fourTuple) reverse() {
-	t.fromAddr, t.fromPort, t.toAddr, t.toPort = t.toAddr, t.toPort, t.fromAddr, t.fromPort
 }
 
 // Report implements Reporter.
