@@ -187,8 +187,8 @@ func (r *Reporter) Report() (report.Report, error) {
 			}
 
 			if e.incoming {
-				e.tuple.reverse()
-				r.addConnection(&rpt, e.tuple, e.networkNamespace, toNodeInfo, fromNodeInfo)
+				tuple := reverse(e.tuple)
+				r.addConnection(&rpt, tuple, e.networkNamespace, toNodeInfo, fromNodeInfo)
 			} else {
 				r.addConnection(&rpt, e.tuple, e.networkNamespace, fromNodeInfo, toNodeInfo)
 			}
