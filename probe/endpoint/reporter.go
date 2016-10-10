@@ -196,7 +196,6 @@ func (r *Reporter) Report() (report.Report, error) {
 			}
 			r.addConnection(&rpt, tuple, namespaceID, fromNodeInfo, toNodeInfo)
 		}
-		r.ebpfTracker.initialized = true
 	}
 
 	// eBPF
@@ -259,5 +258,6 @@ func newu64(i uint64) *uint64 {
 func (r *Reporter) procParsingSwitcher() {
 	if r.walkProc && r.ebpfEnabled {
 		r.walkProc = false
+		r.ebpfTracker.initialized = true
 	}
 }
