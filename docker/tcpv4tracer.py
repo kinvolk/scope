@@ -26,8 +26,13 @@ bpf_text = """
 #include <net/net_namespace.h>
 #include <bcc/proto.h>
 
+#define TCP_EVENT_TYPE_CONNECT 1
+#define TCP_EVENT_TYPE_ACCEPT  2
+#define TCP_EVENT_TYPE_CLOSE   3
+
 struct tcp_event_t {
-	char type[12];
+	u32 type;
+	u32 netns;
 	u32 pid;
 	u32 saddr;
 	u32 daddr;
@@ -75,19 +80,30 @@ int kretprobe__tcp_v4_connect(struct pt_regs *ctx)
 	struct ns_common *ns;
 	u32 saddr = 0, daddr = 0;
 	u16 sport = 0, dport = 0;
+        u32 net_ns_inum = 0;
 	bpf_probe_read(&sport, sizeof(sport), &((struct inet_sock *)skp)->inet_sport);
 	bpf_probe_read(&saddr, sizeof(saddr), &skp->__sk_common.skc_rcv_saddr);
 	bpf_probe_read(&daddr, sizeof(daddr), &skp->__sk_common.skc_daddr);
 	bpf_probe_read(&dport, sizeof(dport), &skp->__sk_common.skc_dport);
 
+// Get network namespace id, if kernel supports it
+#ifdef CONFIG_NET_NS
+	possible_net_t skc_net = {0,};
+	bpf_probe_read(&skc_net, sizeof(skc_net), &skp->__sk_common.skc_net);
+	bpf_probe_read(&net_ns_inum, sizeof(net_ns_inum), &skc_net.net->ns.inum);
+#else
+	net_ns_inum = 0;
+#endif
+
 	// output
 	struct tcp_event_t evt = {
-		.type = "connect",
+		.type = TCP_EVENT_TYPE_CONNECT,
 		.pid = pid >> 32,
 		.saddr = saddr,
 		.daddr = daddr,
 		.sport = ntohs(sport),
 		.dport = ntohs(dport),
+		.netns = net_ns_inum,
 	};
 
 	u16 family = 0;
@@ -126,19 +142,30 @@ int kretprobe__tcp_close(struct pt_regs *ctx)
 	struct sock *skp = *skpp;
 	u32 saddr = 0, daddr = 0;
 	u16 sport = 0, dport = 0;
+        u32 net_ns_inum = 0;
 	bpf_probe_read(&saddr, sizeof(saddr), &skp->__sk_common.skc_rcv_saddr);
 	bpf_probe_read(&daddr, sizeof(daddr), &skp->__sk_common.skc_daddr);
 	bpf_probe_read(&sport, sizeof(sport), &((struct inet_sock *)skp)->inet_sport);
 	bpf_probe_read(&dport, sizeof(dport), &skp->__sk_common.skc_dport);
 
+// Get network namespace id, if kernel supports it
+#ifdef CONFIG_NET_NS
+	possible_net_t skc_net = {0,};
+	bpf_probe_read(&skc_net, sizeof(skc_net), &skp->__sk_common.skc_net);
+	bpf_probe_read(&net_ns_inum, sizeof(net_ns_inum), &skc_net.net->ns.inum);
+#else
+	net_ns_inum = 0;
+#endif
+
 	// output
 	struct tcp_event_t evt = {
-		.type = "close",
+		.type = TCP_EVENT_TYPE_CLOSE,
 		.pid = pid >> 32,
 		.saddr = saddr,
 		.daddr = daddr,
 		.sport = ntohs(sport),
 		.dport = ntohs(dport),
+		.netns = net_ns_inum,
 	};
 
 	u16 family = 0;
@@ -173,12 +200,27 @@ int kretprobe__inet_csk_accept(struct pt_regs *ctx)
 
 	// pull in details
 	u16 family = 0, lport = 0, dport = 0;
+        u32 net_ns_inum = 0;
 	bpf_probe_read(&family, sizeof(family), &newsk->__sk_common.skc_family);
 	bpf_probe_read(&lport, sizeof(lport), &newsk->__sk_common.skc_num);
 	bpf_probe_read(&dport, sizeof(dport), &newsk->__sk_common.skc_dport);
 
+// Get network namespace id, if kernel supports it
+#ifdef CONFIG_NET_NS
+	possible_net_t skc_net = {0,};
+	bpf_probe_read(&skc_net, sizeof(skc_net), &newsk->__sk_common.skc_net);
+	bpf_probe_read(&net_ns_inum, sizeof(net_ns_inum), &skc_net.net->ns.inum);
+#else
+	net_ns_inum = 0;
+#endif
+
 	if (family == AF_INET) {
-		struct tcp_event_t evt = {.type = "accept", .pid = pid >> 32};
+		struct tcp_event_t evt = {
+                        .type = TCP_EVENT_TYPE_ACCEPT,
+                        .pid = pid >> 32,
+                        .netns = net_ns_inum,
+                };
+
 		bpf_probe_read(&evt.saddr, sizeof(u32),
 			&newsk->__sk_common.skc_rcv_saddr);
 		bpf_probe_read(&evt.daddr, sizeof(u32),
@@ -193,10 +235,10 @@ int kretprobe__inet_csk_accept(struct pt_regs *ctx)
 }
 """
 
-TASK_COMM_LEN = 16   # linux/sched.h
 class TCPEvt(ctypes.Structure):
 	_fields_ = [
-		("type", ctypes.c_char * 12),
+		("type", ctypes.c_uint),
+		("netns", ctypes.c_uint),
 		("pid", ctypes.c_uint),
 		("saddr", ctypes.c_uint),
 		("daddr", ctypes.c_uint),
@@ -206,11 +248,21 @@ class TCPEvt(ctypes.Structure):
 
 def print_event(cpu, data, size):
 	event = ctypes.cast(data, ctypes.POINTER(TCPEvt)).contents
-	print("%-12s %-6s %-16s %-16s %-16s %-6s %-6s" % (event.type.decode('utf-8'), event.pid, " ",
+        if event.type == 1:
+            type_str = "connect"
+        elif event.type == 2:
+            type_str = "accept"
+        elif event.type == 3:
+            type_str = "close"
+        else:
+            type_str = "unknown-" + str(event.type)
+
+	print("%s %s %s %s %s %s %s" % (type_str, event.pid,
 	    inet_ntoa(event.saddr),
 	    inet_ntoa(event.daddr),
 	    event.sport,
 	    event.dport,
+	    event.netns,
 	    ))
 
 if args.pid:
@@ -223,8 +275,7 @@ else:
 b = BPF(text=bpf_text)
 
 # header
-print("%-12s %-6s %-16s %-16s %-16s %-6s %-6s" % ("TYPE", "PID", "COMM", "SADDR", "DADDR",
-    "SPORT", "DPORT"))
+print("TYPE PID SADDR DADDR SPORT DPORT NETNS")
 
 def inet_ntoa(addr):
 	dq = ''

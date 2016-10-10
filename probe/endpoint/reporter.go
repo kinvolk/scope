@@ -12,6 +12,8 @@ import (
 	"github.com/weaveworks/scope/probe/endpoint/procspy"
 	"github.com/weaveworks/scope/probe/process"
 	"github.com/weaveworks/scope/report"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 // Node metadata keys.
@@ -37,7 +39,6 @@ type Reporter struct {
 	scanner         procspy.ConnectionScanner
 	natMapper       natMapper
 	reverseResolver *reverseResolver
-	cachedTopology  report.Topology
 }
 
 // SpyDuration is an exported prometheus metric
@@ -69,7 +70,6 @@ func NewReporter(hostID, hostName string, spyProcs, useConntrack, walkProc, ebpf
 		natMapper:       makeNATMapper(newConntrackFlowWalker(useConntrack, procRoot, "--any-nat")),
 		reverseResolver: newReverseResolver(),
 		scanner:         scanner,
-		cachedTopology:  report.MakeTopology(),
 	}
 }
 
@@ -87,6 +87,10 @@ func (r *Reporter) Stop() {
 type fourTuple struct {
 	fromAddr, toAddr string
 	fromPort, toPort uint16
+}
+
+func (t fourTuple) String() string {
+	return fmt.Sprintf("%s:%d-%s:%d", t.fromAddr, t.fromPort, t.toAddr, t.toPort)
 }
 
 // key is a sortable direction-independent key for tuples, used to look up a
@@ -113,13 +117,6 @@ func (r *Reporter) Report() (report.Report, error) {
 
 	hostNodeID := report.MakeHostNodeID(r.hostID)
 	rpt := report.MakeReport()
-	defer func() {
-		r.cachedTopology = rpt.Endpoint.Copy()
-	}()
-
-	if !report.IsEmptyTopology(r.cachedTopology) {
-		rpt.Endpoint = r.cachedTopology
-	}
 
 	seenTuples := map[string]fourTuple{}
 
@@ -152,40 +149,6 @@ func (r *Reporter) Report() (report.Report, error) {
 		})
 	}
 
-	// eBPF
-	if r.ebpfEnabled {
-		fromNodeInfo := map[string]string{
-			// FIXME: remove this
-			Procspied: "true",
-			EBPF:      "true",
-		}
-		toNodeInfo := map[string]string{
-			Procspied: "true",
-			EBPF:      "true",
-		}
-		r.ebpfTracker.WalkEvents(func(e ConnectionEvent) {
-			tuple := fourTuple{
-				e.SourceAddress.String(),
-				e.DestAddress.String(),
-				e.SourcePort,
-				e.DestPort,
-			}
-
-			fromNodeInfo[process.PID] = strconv.Itoa(e.Pid)
-			fromNodeInfo[report.HostNodeID] = hostNodeID
-			switch e.Type {
-			case Connect:
-				r.addConnection(&rpt, tuple, "", fromNodeInfo, toNodeInfo)
-			// TODO the node that ACCEPTs is at the receving end of hte connection
-			// so maybe we should not add a new node?
-			case Accept:
-				r.addConnection(&rpt, tuple, "", fromNodeInfo, toNodeInfo)
-			case Close:
-				r.removeConnection(&rpt, tuple, "", fromNodeInfo, toNodeInfo)
-			}
-		})
-	}
-
 	if r.walkProc {
 		defer r.procParsingSwitcher()
 		conns, err := r.scanner.Connections(r.spyProcs)
@@ -213,6 +176,10 @@ func (r *Reporter) Report() (report.Report, error) {
 				namespaceID = strconv.FormatUint(conn.Proc.NetNamespaceID, 10)
 			}
 
+			if r.ebpfEnabled && !r.ebpfTracker.initialized {
+				r.ebpfTracker.handleFlow("connect", tuple, int(conn.Proc.PID), namespaceID)
+			}
+
 			// If we've already seen this connection, we should know the direction
 			// (or have already figured it out), so we normalize and use the
 			// canonical direction. Otherwise, we can use a port-heuristic to guess
@@ -224,6 +191,28 @@ func (r *Reporter) Report() (report.Report, error) {
 			}
 			r.addConnection(&rpt, tuple, namespaceID, fromNodeInfo, toNodeInfo)
 		}
+		r.ebpfTracker.initialized = true
+	}
+
+	// eBPF
+	if r.ebpfEnabled && !r.ebpfTracker.hasDied() {
+		log.Infof("reporter: generating eBPF report")
+		r.ebpfTracker.walkFlows(func(e ebpfConnection) {
+			fromNodeInfo := map[string]string{
+				Procspied:         "true",
+				EBPF:              "true",
+				process.PID:       strconv.Itoa(e.pid),
+				report.HostNodeID: hostNodeID,
+			}
+			toNodeInfo := map[string]string{
+				Procspied: "true",
+				EBPF:      "true",
+			}
+
+			r.addConnection(&rpt, e.tuple, e.netns, fromNodeInfo, toNodeInfo)
+			log.Infof("reporter: adding %s netns=%s", e.tuple.String(), e.netns)
+		})
+		log.Infof("reporter: generating eBPF report done")
 	}
 
 	r.natMapper.applyNAT(rpt, r.hostID)
@@ -237,17 +226,6 @@ func (r *Reporter) addConnection(rpt *report.Report, t fourTuple, namespaceID st
 	)
 	rpt.Endpoint = rpt.Endpoint.AddNode(fromNode.WithEdge(toNode.ID, report.EdgeMetadata{}))
 	rpt.Endpoint = rpt.Endpoint.AddNode(toNode)
-}
-
-func (r *Reporter) removeConnection(rpt *report.Report, t fourTuple, namespaceID string, extraFromNode, extraToNode map[string]string) {
-	// create node from tuple
-	var (
-		fromNode = r.makeEndpointNode(namespaceID, t.fromAddr, t.fromPort, extraFromNode)
-		toNode   = r.makeEndpointNode(namespaceID, t.toAddr, t.toPort, extraToNode)
-	)
-	// check
-	rpt.Endpoint.RemoveNode(fromNode)
-	rpt.Endpoint.RemoveNode(toNode)
 }
 
 func (r *Reporter) makeEndpointNode(namespaceID string, addr string, port uint16, extra map[string]string) report.Node {
