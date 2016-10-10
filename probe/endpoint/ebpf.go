@@ -59,7 +59,7 @@ func (t *EbpfTracker) handleFlow(eventStr string, tuple fourTuple, pid int, netn
 
 	switch eventStr {
 	case "connect":
-		log.Infof("EbpfTracker: connect: %s pid=%v", tuple.String(), pid)
+		log.Infof("EbpfTracker: connect: %s pid=%v", tuple, pid)
 		conn := ebpfConnection{
 			outgoing: true,
 			tuple:    tuple,
@@ -68,7 +68,7 @@ func (t *EbpfTracker) handleFlow(eventStr string, tuple fourTuple, pid int, netn
 		}
 		t.activeFlows[tuple.String()] = conn
 	case "accept":
-		log.Infof("EbpfTracker: accept: %s pid=%v", tuple.String(), pid)
+		log.Infof("EbpfTracker: accept: %s pid=%v", tuple, pid)
 		conn := ebpfConnection{
 			outgoing: true,
 			tuple:    tuple,
@@ -77,7 +77,7 @@ func (t *EbpfTracker) handleFlow(eventStr string, tuple fourTuple, pid int, netn
 		}
 		t.activeFlows[tuple.String()] = conn
 	case "close":
-		log.Infof("EbpfTracker: close: %s pid=%v", tuple.String(), pid)
+		log.Infof("EbpfTracker: close: %s pid=%v", tuple, pid)
 		if deadConn, ok := t.activeFlows[tuple.String()]; ok {
 			delete(t.activeFlows, tuple.String())
 			t.bufferedFlows = append(t.bufferedFlows, deadConn)
