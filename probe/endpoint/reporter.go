@@ -214,8 +214,8 @@ func (r *Reporter) Report() (report.Report, error) {
 				EBPF:      "true",
 			}
 
-			r.addConnection(&rpt, e.tuple, e.netns, fromNodeInfo, toNodeInfo)
-			log.Infof("reporter: adding %s netns=%s", e.tuple, e.netns)
+			r.addConnection(&rpt, e.tuple, e.networkNamespace, fromNodeInfo, toNodeInfo)
+			log.Infof("reporter: adding %s networkNamespace=%s", e.tuple, e.networkNamespace)
 		})
 		log.Infof("reporter: generating eBPF report done")
 	}
