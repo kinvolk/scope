@@ -16,7 +16,7 @@ import (
 type ebpfConnection struct {
 	tuple            fourTuple
 	networkNamespace string
-	outgoing         bool
+	incoming         bool
 	pid              int
 }
 
@@ -61,7 +61,7 @@ func (t *EbpfTracker) handleFlow(eventType string, tuple fourTuple, pid int, net
 	case "connect":
 		log.Infof("EbpfTracker: connect: %s pid=%v", tuple, pid)
 		conn := ebpfConnection{
-			outgoing:         true,
+			incoming:         false,
 			tuple:            tuple,
 			pid:              pid,
 			networkNamespace: networkNamespace,
@@ -70,7 +70,7 @@ func (t *EbpfTracker) handleFlow(eventType string, tuple fourTuple, pid int, net
 	case "accept":
 		log.Infof("EbpfTracker: accept: %s pid=%v", tuple, pid)
 		conn := ebpfConnection{
-			outgoing:         true,
+			incoming:         true,
 			tuple:            tuple,
 			pid:              pid,
 			networkNamespace: networkNamespace,
