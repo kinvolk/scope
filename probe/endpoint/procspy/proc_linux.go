@@ -226,7 +226,6 @@ func (w pidWalker) walk(buf *bytes.Buffer) (map[uint64]*Proc, error) {
 
 	log.Info(">> in the walker")
 	w.walker.Walk(func(p, _ process.Process) {
-		log.Info(">>in the anonymous Walk function")
 		dirName := strconv.Itoa(p.PID)
 
 		netNamespacePath := filepath.Join(procRoot, dirName, getNetNamespacePathSuffix())
@@ -251,7 +250,6 @@ func (w pidWalker) walk(buf *bytes.Buffer) (map[uint64]*Proc, error) {
 	}
 
 	metrics.SetGauge(namespaceKey, float32(len(namespaces)))
-	log.Infof("walk: returning socks: %v, and nil", sockets)
 	return sockets, nil
 }
 
