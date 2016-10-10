@@ -14,10 +14,10 @@ import (
 
 // A ebpfConnection represents a network connection
 type ebpfConnection struct {
-	tuple    fourTuple
-	netns    string
-	outgoing bool
-	pid      int
+	tuple            fourTuple
+	networkNamespace string
+	outgoing         bool
+	pid              int
 }
 
 // EbpfTracker contains the list of eBPF events, and the eBPF script's command
@@ -53,27 +53,27 @@ func NewEbpfTracker(bccProgramPath string) *EbpfTracker {
 	return tracker
 }
 
-func (t *EbpfTracker) handleFlow(eventStr string, tuple fourTuple, pid int, netns string) {
+func (t *EbpfTracker) handleFlow(eventType string, tuple fourTuple, pid int, networkNamespace string) {
 	t.Lock()
 	defer t.Unlock()
 
-	switch eventStr {
+	switch eventType {
 	case "connect":
 		log.Infof("EbpfTracker: connect: %s pid=%v", tuple, pid)
 		conn := ebpfConnection{
-			outgoing: true,
-			tuple:    tuple,
-			pid:      pid,
-			netns:    netns,
+			outgoing:         true,
+			tuple:            tuple,
+			pid:              pid,
+			networkNamespace: networkNamespace,
 		}
 		t.activeFlows[tuple.String()] = conn
 	case "accept":
 		log.Infof("EbpfTracker: accept: %s pid=%v", tuple, pid)
 		conn := ebpfConnection{
-			outgoing: true,
-			tuple:    tuple,
-			pid:      pid,
-			netns:    netns,
+			outgoing:         true,
+			tuple:            tuple,
+			pid:              pid,
+			networkNamespace: networkNamespace,
 		}
 		t.activeFlows[tuple.String()] = conn
 	case "close":
@@ -129,7 +129,7 @@ func (t *EbpfTracker) run() {
 			continue
 		}
 
-		eventStr := line[0]
+		eventType := line[0]
 
 		pid, err := strconv.Atoi(line[1])
 		if err != nil {
@@ -163,11 +163,11 @@ func (t *EbpfTracker) run() {
 		}
 		destPort := uint16(dPort)
 
-		netns := line[6]
+		networkNamespace := line[6]
 
 		tuple := fourTuple{sourceAddr.String(), destAddr.String(), sourcePort, destPort}
 
-		t.handleFlow(eventStr, tuple, pid, netns)
+		t.handleFlow(eventType, tuple, pid, networkNamespace)
 	}
 }
 
