@@ -181,6 +181,7 @@ func (r *Reporter) Report() (report.Report, error) {
 				namespaceID = strconv.FormatUint(conn.Proc.NetNamespaceID, 10)
 			}
 
+			// if the eBPF tracker is enabled, feed the existing connections into it
 			if r.ebpfEnabled && !r.ebpfTracker.initialized {
 				r.ebpfTracker.handleFlow("connect", tuple, int(conn.Proc.PID), namespaceID)
 			}
