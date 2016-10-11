@@ -23,10 +23,6 @@ const (
 	ReverseDNSNames = "reverse_dns_names"
 )
 
-// TCPV4TracerLocation is the location of the Python script
-// that executes wraps the eBPF events
-var TCPV4TracerLocation = "/home/weave/tcpv4tracer.py"
-
 // Reporter generates Reports containing the Endpoint topology.
 type Reporter struct {
 	hostID          string
@@ -67,7 +63,7 @@ func NewReporter(hostID, hostName string, spyProcs, useConntrack, walkProc, ebpf
 		walkProc:        walkProc,
 		ebpfEnabled:     ebpfEnabled,
 		flowWalker:      newConntrackFlowWalker(useConntrack, procRoot),
-		ebpfTracker:     newEbpfTracker(ebpfEnabled, TCPV4TracerLocation),
+		ebpfTracker:     newEbpfTracker(ebpfEnabled),
 		natMapper:       makeNATMapper(newConntrackFlowWalker(useConntrack, procRoot, "--any-nat")),
 		reverseResolver: newReverseResolver(),
 		scanner:         scanner,

@@ -12,6 +12,10 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
+// TCPV4TracerLocation is the location of the Python script
+// that delivers the eBPF messages coming from the kernel.
+var TCPV4TracerLocation = "/home/weave/tcpv4tracer.py"
+
 // A ebpfConnection represents a network connection
 type ebpfConnection struct {
 	tuple            fourTuple
@@ -52,11 +56,11 @@ type EbpfTracker struct {
 	bufferedFlows []ebpfConnection
 }
 
-func newEbpfTracker(ebpfEnabled bool, bccProgramPath string) eventTracker {
+func newEbpfTracker(ebpfEnabled bool) eventTracker {
 	if !ebpfEnabled {
 		return &nilTracker{}
 	}
-	cmd := exec.Command(bccProgramPath)
+	cmd := exec.Command(TCPV4TracerLocation)
 	env := os.Environ()
 	cmd.Env = append(env, "PYTHONUNBUFFERED=1")
 
