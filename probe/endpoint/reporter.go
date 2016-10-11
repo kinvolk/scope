@@ -153,27 +153,24 @@ func (r *Reporter) Report() (report.Report, error) {
 				namespaceID = strconv.FormatUint(conn.Proc.NetNamespaceID, 10)
 			}
 
-			// if the eBPF tracker is enabled, feed the existing connections into it
-			if r.ebpfEnabled && !r.ebpfTracker.isInitialized() {
-				r.ebpfTracker.handleFlow("connect", tuple, int(conn.Proc.PID), namespaceID)
-			}
-
 			// If we've already seen this connection, we should know the direction
 			// (or have already figured it out), so we normalize and use the
 			// canonical direction. Otherwise, we can use a port-heuristic to guess
 			// the direction.
 			canonical, ok := seenTuples[tuple.key()]
 			if (ok && canonical != tuple) || (!ok && tuple.fromPort < tuple.toPort) {
-				tuple.reverse()
-				toNodeInfo, fromNodeInfo = fromNodeInfo, toNodeInfo
+				r.feedToEbpf(tuple, true, int(conn.Proc.PID), namespaceID)
+				r.addConnection(&rpt, canonical, namespaceID, toNodeInfo, fromNodeInfo)
+			} else {
+				r.feedToEbpf(tuple, false, int(conn.Proc.PID), namespaceID)
+				r.addConnection(&rpt, tuple, namespaceID, fromNodeInfo, toNodeInfo)
 			}
-			r.addConnection(&rpt, tuple, namespaceID, fromNodeInfo, toNodeInfo)
+
 		}
 	}
 
 	// eBPF
 	if r.ebpfEnabled && !r.ebpfTracker.hasDied() {
-		log.Infof("reporter: generating eBPF report")
 		r.ebpfTracker.walkFlows(func(e ebpfConnection) {
 			fromNodeInfo := map[string]string{
 				Procspied:         "true",
@@ -193,7 +190,7 @@ func (r *Reporter) Report() (report.Report, error) {
 				r.addConnection(&rpt, e.tuple, e.networkNamespace, fromNodeInfo, toNodeInfo)
 			}
 
-			log.Infof("reporter: adding %s networkNamespace=%s", e.tuple, e.networkNamespace)
+			log.Infof("reporter(ebpf): adding %s networkNamespace=%s", e.tuple, e.networkNamespace)
 		})
 		log.Infof("reporter: generating eBPF report done")
 	}
@@ -238,5 +235,20 @@ func (r *Reporter) procParsingSwitcher() {
 	if r.walkProc && r.ebpfEnabled {
 		r.walkProc = false
 		r.ebpfTracker.initialize()
+	}
+}
+
+// if the eBPF tracker is enabled, feed the existing connections into it
+// incoming connections correspond to "accept" events
+// outgoing connections correspond to "connect" events
+func (r Reporter) feedToEbpf(tuple fourTuple, incoming bool, pid int, namespaceID string) {
+	if r.ebpfEnabled && !r.ebpfTracker.isInitialized() {
+		tcpEventType := "connect"
+
+		if incoming {
+			tcpEventType = "accept"
+		}
+
+		r.ebpfTracker.handleFlow(tcpEventType, tuple, pid, namespaceID)
 	}
 }
