@@ -38,10 +38,6 @@ type ReporterConfig struct {
 	DNSSnooper   *DNSSnooper
 }
 
-// TCPV4TracerLocation is the location of the Python script
-// that executes wraps the eBPF events
-var TCPV4TracerLocation = "/home/weave/tcpv4tracer.py"
-
 // Reporter generates Reports containing the Endpoint topology.
 type Reporter struct {
 	conf            ReporterConfig
@@ -72,7 +68,7 @@ func NewReporter(conf ReporterConfig) *Reporter {
 	return &Reporter{
 		conf:            conf,
 		flowWalker:      newConntrackFlowWalker(conf.UseConntrack, conf.ProcRoot, conf.BufferSize),
-		ebpfTracker:     newEbpfTracker(ebpfEnabled, TCPV4TracerLocation),
+		ebpfTracker:     newEbpfTracker(ebpfEnabled),
 		natMapper:       makeNATMapper(newConntrackFlowWalker(conf.UseConntrack, conf.ProcRoot, conf.BufferSize, "--any-nat")),
 		reverseResolver: newReverseResolver(),
 		cachedTopology:  report.MakeTopology(),
