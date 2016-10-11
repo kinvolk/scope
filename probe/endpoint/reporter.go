@@ -23,6 +23,10 @@ const (
 	ReverseDNSNames = "reverse_dns_names"
 )
 
+// TCPV4TracerLocation is the location of the Python script
+// that executes wraps the eBPF events
+var TCPV4TracerLocation = "/home/weave/tcpv4tracer.py"
+
 // Reporter generates Reports containing the Endpoint topology.
 type Reporter struct {
 	hostID          string
@@ -32,7 +36,7 @@ type Reporter struct {
 	ebpfEnabled     bool
 	procWalked      bool
 	flowWalker      flowWalker // interface
-	ebpfTracker     *EbpfTracker
+	ebpfTracker     eventTracker
 	scanner         procspy.ConnectionScanner
 	natMapper       natMapper
 	reverseResolver *reverseResolver
@@ -63,7 +67,7 @@ func NewReporter(hostID, hostName string, spyProcs, useConntrack, walkProc, ebpf
 		walkProc:        walkProc,
 		ebpfEnabled:     ebpfEnabled,
 		flowWalker:      newConntrackFlowWalker(useConntrack, procRoot),
-		ebpfTracker:     NewEbpfTracker("/home/weave/tcpv4tracer.py"),
+		ebpfTracker:     newEbpfTracker(ebpfEnabled, TCPV4TracerLocation),
 		natMapper:       makeNATMapper(newConntrackFlowWalker(useConntrack, procRoot, "--any-nat")),
 		reverseResolver: newReverseResolver(),
 		scanner:         scanner,
@@ -149,7 +153,7 @@ func (r *Reporter) Report() (report.Report, error) {
 			}
 
 			// if the eBPF tracker is enabled, feed the existing connections into it
-			if r.ebpfEnabled && !r.ebpfTracker.initialized {
+			if r.ebpfEnabled && !r.ebpfTracker.isInitialized() {
 				r.ebpfTracker.handleFlow("connect", tuple, int(conn.Proc.PID), namespaceID)
 			}
 
@@ -231,6 +235,6 @@ func newu64(i uint64) *uint64 {
 func (r *Reporter) procParsingSwitcher() {
 	if r.walkProc && r.ebpfEnabled {
 		r.walkProc = false
-		r.ebpfTracker.initialized = true
+		r.ebpfTracker.initialize()
 	}
 }
