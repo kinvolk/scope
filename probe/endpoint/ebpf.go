@@ -29,18 +29,16 @@ type eventTracker interface {
 	isInitialized() bool
 }
 
+// nilTracker is a tracker that does nothing, and it implements the eventTracker interface.
+// It is returned when the ebpfEnabled flag is false.
 type nilTracker struct{}
 
 func (n nilTracker) handleFlow(_ string, _ fourTuple, _ int, _ string) {}
-func (n nilTracker) hasDied() bool {
-	return true
-}
-func (n nilTracker) run()                             {}
-func (n nilTracker) walkFlows(f func(ebpfConnection)) {}
-func (n nilTracker) initialize()                      {}
-func (n nilTracker) isInitialized() bool {
-	return false
-}
+func (n nilTracker) hasDied() bool                                     { return true }
+func (n nilTracker) run()                                              {}
+func (n nilTracker) walkFlows(f func(ebpfConnection))                  {}
+func (n nilTracker) initialize()                                       {}
+func (n nilTracker) isInitialized() bool                               { return false }
 
 // EbpfTracker contains the list of eBPF events, and the eBPF script's command
 type EbpfTracker struct {
