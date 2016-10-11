@@ -20,6 +20,28 @@ type ebpfConnection struct {
 	pid              int
 }
 
+type eventTracker interface {
+	handleFlow(eventType string, tuple fourTuple, pid int, networkNamespace string)
+	hasDied() bool
+	run()
+	walkFlows(f func(ebpfConnection))
+	initialize()
+	isInitialized() bool
+}
+
+type nilTracker struct{}
+
+func (n nilTracker) handleFlow(_ string, _ fourTuple, _ int, _ string) {}
+func (n nilTracker) hasDied() bool {
+	return true
+}
+func (n nilTracker) run()                             {}
+func (n nilTracker) walkFlows(f func(ebpfConnection)) {}
+func (n nilTracker) initialize()                      {}
+func (n nilTracker) isInitialized() bool {
+	return false
+}
+
 // EbpfTracker contains the list of eBPF events, and the eBPF script's command
 type EbpfTracker struct {
 	sync.Mutex
@@ -32,8 +54,10 @@ type EbpfTracker struct {
 	bufferedFlows []ebpfConnection
 }
 
-// NewEbpfTracker creates a new EbpfTracker
-func NewEbpfTracker(bccProgramPath string) *EbpfTracker {
+func newEbpfTracker(ebpfEnabled bool, bccProgramPath string) eventTracker {
+	if !ebpfEnabled {
+		return &nilTracker{}
+	}
 	cmd := exec.Command(bccProgramPath)
 	env := os.Environ()
 	cmd.Env = append(env, "PYTHONUNBUFFERED=1")
@@ -193,4 +217,12 @@ func (t *EbpfTracker) hasDied() bool {
 	defer t.Unlock()
 
 	return t.dead
+}
+
+func (t *EbpfTracker) initialize() {
+	t.initialized = true
+}
+
+func (t *EbpfTracker) isInitialized() bool {
+	return t.initialized
 }
