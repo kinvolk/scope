@@ -9,8 +9,6 @@ import (
 	"github.com/weaveworks/scope/probe/endpoint/procspy"
 	"github.com/weaveworks/scope/probe/process"
 	"github.com/weaveworks/scope/report"
-
-	log "github.com/Sirupsen/logrus"
 )
 
 // Node metadata keys.
@@ -190,9 +188,7 @@ func (r *Reporter) Report() (report.Report, error) {
 				r.addConnection(&rpt, e.tuple, e.networkNamespace, fromNodeInfo, toNodeInfo)
 			}
 
-			log.Infof("reporter(ebpf): adding %s networkNamespace=%s", e.tuple, e.networkNamespace)
 		})
-		log.Infof("reporter: generating eBPF report done")
 	}
 
 	r.natMapper.applyNAT(rpt, r.conf.HostID)
