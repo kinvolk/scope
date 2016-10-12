@@ -39,10 +39,6 @@ func (*CachingWalker) Name() string { return "Process" }
 
 // Walk walks a cached copy of process list
 func (c *CachingWalker) Walk(f func(Process, Process)) error {
-	if len(c.cache) == 0 {
-		c.Tick()
-	}
-
 	c.cacheLock.RLock()
 	defer c.cacheLock.RUnlock()
 	for _, p := range c.cache {
