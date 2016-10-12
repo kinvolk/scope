@@ -163,7 +163,7 @@ func probeMain(flags probeFlags, targets []appclient.Target) {
 		SpyProcs:     flags.spyProcs,
 		UseConntrack: flags.useConntrack,
 		WalkProc:     flags.procEnabled,
-		EpbfEnabled:  flags.ebpfEnabled,
+		EbpfEnabled:  flags.ebpfEnabled,
 		ProcRoot:     flags.procRoot,
 		BufferSize:   flags.conntrackBufferSize,
 		Scanner:      scanner,
