@@ -86,6 +86,7 @@ func TestSpyWithProcesses(t *testing.T) {
 	)
 
 	scanner := procspy.FixedScanner(fixConnectionsWithProcesses)
+	// spyProcs: true, useConntrack: false, walkProc: true, ebpfEnabled: false
 	reporter := endpoint.NewReporter(nodeID, nodeName, true, false, true, false, "", scanner)
 	r, _ := reporter.Report()
 	// buf, _ := json.MarshalIndent(r, "", "    ") ; t.Logf("\n%s\n", buf)
