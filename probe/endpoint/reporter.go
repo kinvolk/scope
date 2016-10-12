@@ -170,14 +170,16 @@ func (r *Reporter) Report() (report.Report, error) {
 	if r.conf.EbpfEnabled && !r.ebpfTracker.hasDied() {
 		r.ebpfTracker.walkFlows(func(e ebpfConnection) {
 			fromNodeInfo := map[string]string{
-				Procspied:         "true",
-				EBPF:              "true",
-				process.PID:       strconv.Itoa(e.pid),
-				report.HostNodeID: hostNodeID,
+				Procspied: "true",
+				EBPF:      "true",
 			}
 			toNodeInfo := map[string]string{
 				Procspied: "true",
 				EBPF:      "true",
+			}
+			if e.pid > 0 {
+				fromNodeInfo[process.PID] = strconv.Itoa(e.pid)
+				fromNodeInfo[report.HostNodeID] = hostNodeID
 			}
 
 			if e.incoming {
