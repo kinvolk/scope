@@ -224,7 +224,6 @@ func (w pidWalker) walk(buf *bytes.Buffer) (map[uint64]*Proc, error) {
 	// between reading /net/tcp{,6} of each namespace and /proc/PID/fd/* for
 	// the processes living in that namespace.
 
-	log.Info(">> in the walker")
 	w.walker.Walk(func(p, _ process.Process) {
 		dirName := strconv.Itoa(p.PID)
 
@@ -238,13 +237,10 @@ func (w pidWalker) walk(buf *bytes.Buffer) (map[uint64]*Proc, error) {
 	})
 
 	for namespaceID, procs := range namespaces {
-		log.Info("walk: inside namespaces loop")
 		select {
 		case <-w.tickc:
-			log.Info("received message on tickc")
 			w.walkNamespace(namespaceID, buf, sockets, procs)
 		case <-w.stopc:
-			log.Info("received message on stopc")
 			break // abort
 		}
 	}
