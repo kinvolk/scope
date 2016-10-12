@@ -49,9 +49,12 @@ func newForegroundReader(walker process.Walker) *backgroundReader {
 		pWalker = newPidWalker(walker, ticker.C, fdBlockSize)
 	)
 
+	log.Info(">> in the foreground worker")
 	go performWalk(pWalker, walkc)
 
+	log.Info("Waiting for performWalk to send results")
 	result := <-walkc
+	log.Info("got results from performwalk")
 	br.mtx.Lock()
 	br.latestBuf = result.buf
 	br.latestSockets = result.sockets
@@ -87,12 +90,14 @@ func performWalk(w pidWalker, c chan<- walkResult) {
 		}
 	)
 
+	log.Info("in performWalk")
 	result.sockets, err = w.walk(result.buf)
 	if err != nil {
 		log.Errorf("background /proc reader: error walking /proc: %s", err)
 		result.buf.Reset()
 		result.sockets = nil
 	}
+	log.Infof("performWalk: sending %v to channel", len(result.sockets))
 	c <- result
 }
 

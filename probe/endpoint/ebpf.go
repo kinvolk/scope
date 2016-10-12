@@ -85,6 +85,7 @@ func (t *EbpfTracker) handleFlow(eventType string, tuple fourTuple, pid int, net
 
 	switch eventType {
 	case "connect":
+		log.Infof("EbpfTracker: connect: %s pid=%v", tuple, pid)
 		conn := ebpfConnection{
 			incoming:         false,
 			tuple:            tuple,
@@ -93,6 +94,7 @@ func (t *EbpfTracker) handleFlow(eventType string, tuple fourTuple, pid int, net
 		}
 		t.activeFlows[tuple.String()] = conn
 	case "accept":
+		log.Infof("EbpfTracker: accept: %s pid=%v", tuple, pid)
 		conn := ebpfConnection{
 			incoming:         true,
 			tuple:            tuple,
@@ -101,10 +103,12 @@ func (t *EbpfTracker) handleFlow(eventType string, tuple fourTuple, pid int, net
 		}
 		t.activeFlows[tuple.String()] = conn
 	case "close":
+		log.Infof("EbpfTracker: close: %s pid=%v", tuple, pid)
 		if deadConn, ok := t.activeFlows[tuple.String()]; ok {
 			delete(t.activeFlows, tuple.String())
 			t.bufferedFlows = append(t.bufferedFlows, deadConn)
 		} else {
+			log.Errorf("EbpfTracker error: unmatched close event")
 		}
 	}
 
@@ -198,6 +202,8 @@ func (t *EbpfTracker) run() {
 func (t *EbpfTracker) walkFlows(f func(ebpfConnection)) {
 	t.Lock()
 	defer t.Unlock()
+
+	log.Infof("EbpfTracker: WalkConnections activeFlows: %d bufferedFlows: %d", len(t.activeFlows), len(t.bufferedFlows))
 
 	for _, flow := range t.activeFlows {
 		f(flow)
