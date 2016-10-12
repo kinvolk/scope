@@ -158,7 +158,7 @@ func (r *Reporter) Report() (report.Report, error) {
 			canonical, ok := seenTuples[tuple.key()]
 			if (ok && canonical != tuple) || (!ok && tuple.fromPort < tuple.toPort) {
 				r.feedToEbpf(tuple, true, int(conn.Proc.PID), namespaceID)
-				r.addConnection(&rpt, canonical, namespaceID, toNodeInfo, fromNodeInfo)
+				r.addConnection(&rpt, reverse(tuple), namespaceID, toNodeInfo, fromNodeInfo)
 			} else {
 				r.feedToEbpf(tuple, false, int(conn.Proc.PID), namespaceID)
 				r.addConnection(&rpt, tuple, namespaceID, fromNodeInfo, toNodeInfo)
@@ -182,8 +182,7 @@ func (r *Reporter) Report() (report.Report, error) {
 			}
 
 			if e.incoming {
-				tuple := reverse(e.tuple)
-				r.addConnection(&rpt, tuple, e.networkNamespace, toNodeInfo, fromNodeInfo)
+				r.addConnection(&rpt, reverse(e.tuple), e.networkNamespace, toNodeInfo, fromNodeInfo)
 			} else {
 				r.addConnection(&rpt, e.tuple, e.networkNamespace, fromNodeInfo, toNodeInfo)
 			}
