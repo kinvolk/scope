@@ -32,6 +32,7 @@ func (t *fourTuple) reverse() {
 	t.fromAddr, t.fromPort, t.toAddr, t.toPort = t.toAddr, t.toPort, t.fromAddr, t.fromPort
 }
 
+// reverse flips the direction of a tuple, without side effects
 func reverse(tuple fourTuple) fourTuple {
 	return fourTuple{
 		fromAddr: tuple.toAddr,
