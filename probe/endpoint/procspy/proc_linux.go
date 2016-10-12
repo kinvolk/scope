@@ -5,7 +5,6 @@ package procspy
 import (
 	"bytes"
 	"fmt"
-	"math"
 	"path/filepath"
 	"strconv"
 	"syscall"
@@ -37,15 +36,6 @@ func newPidWalker(walker process.Walker, tickc <-chan time.Time, fdBlockSize uin
 		walker:      walker,
 		tickc:       tickc,
 		fdBlockSize: fdBlockSize,
-		stopc:       make(chan struct{}),
-	}
-	return w
-}
-
-func newUnlimitedPidWalker(walker process.Walker) pidWalker {
-	w := pidWalker{
-		walker:      walker,
-		fdBlockSize: math.MaxUint64,
 		stopc:       make(chan struct{}),
 	}
 	return w
