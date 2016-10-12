@@ -69,7 +69,6 @@ func NewReporter(conf ReporterConfig) *Reporter {
 		ebpfTracker:     newEbpfTracker(conf.EbpfEnabled),
 		natMapper:       makeNATMapper(newConntrackFlowWalker(conf.UseConntrack, conf.ProcRoot, conf.BufferSize, "--any-nat")),
 		reverseResolver: newReverseResolver(),
-		cachedTopology:  report.MakeTopology(),
 	}
 }
 
@@ -227,8 +226,8 @@ func newu64(i uint64) *uint64 {
 // procParsingSwitcher make sure that if eBPF tracking is enabled,
 // connections coming from /proc parsing are only walked once.
 func (r *Reporter) procParsingSwitcher() {
-	if r.walkProc && r.conf.EbpfEnabled {
-		r.walkProc = false
+	if r.conf.WalkProc && r.conf.EbpfEnabled {
+		r.conf.WalkProc = false
 		r.ebpfTracker.initialize()
 	}
 }
