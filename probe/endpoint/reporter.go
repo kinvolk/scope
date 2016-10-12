@@ -28,7 +28,6 @@ type Reporter struct {
 	spyProcs        bool
 	walkProc        bool
 	ebpfEnabled     bool
-	procWalked      bool
 	flowWalker      flowWalker // interface
 	ebpfTracker     eventTracker
 	scanner         procspy.ConnectionScanner
