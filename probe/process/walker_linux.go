@@ -1,7 +1,6 @@
 package process
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"path"
@@ -12,15 +11,23 @@ import (
 
 	"github.com/weaveworks/scope/common/fs"
 	"github.com/weaveworks/scope/probe/host"
+	"github.com/weaveworks/scope/probe/process/cnproc"
 )
 
 type walker struct {
 	procRoot string
+
+	procConnector *cnproc.ProcConnector
 }
 
 // NewWalker creates a new process Walker.
 func NewWalker(procRoot string) Walker {
-	return &walker{procRoot: procRoot}
+	procConnector := cnproc.NewProcConnector()
+
+	return &walker{
+		procRoot:      procRoot,
+		procConnector: procConnector,
+	}
 }
 
 func readStats(path string) (ppid, threads int, jiffies, rss, rssLimit uint64, err error) {
@@ -86,59 +93,57 @@ func readLimits(path string) (openFilesLimit uint64, err error) {
 // passes one-by-one to the supplied function. Walk is only made public
 // so that is can be tested.
 func (w *walker) Walk(f func(Process, Process)) error {
-	dirEntries, err := fs.ReadDirNames(w.procRoot)
-	if err != nil {
-		return err
-	}
-
-	for _, filename := range dirEntries {
-		pid, err := strconv.Atoi(filename)
+	if w.procConnector.Running {
+		w.procConnector.Walk(func(p cnproc.Process) {
+			filename := strconv.Itoa(p.Pid)
+			w.walkOne(p.Pid, filename, p.Cmdline, p.Name, f)
+		})
+	} else {
+		dirEntries, err := fs.ReadDirNames(w.procRoot)
 		if err != nil {
-			continue
+			return err
 		}
 
-		ppid, threads, jiffies, rss, rssLimit, err := readStats(path.Join(w.procRoot, filename, "stat"))
-		if err != nil {
-			continue
-		}
-
-		openFiles, err := fs.ReadDirNames(path.Join(w.procRoot, filename, "fd"))
-		if err != nil {
-			continue
-		}
-
-		openFilesLimit, err := readLimits(path.Join(w.procRoot, filename, "limits"))
-		if err != nil {
-			continue
-		}
-
-		cmdline, name := "", "(unknown)"
-		if cmdlineBuf, err := cachedReadFile(path.Join(w.procRoot, filename, "cmdline")); err == nil {
-			// like proc, treat name as the first element of command line
-			i := bytes.IndexByte(cmdlineBuf, '\000')
-			if i == -1 {
-				i = len(cmdlineBuf)
+		for _, filename := range dirEntries {
+			pid, err := strconv.Atoi(filename)
+			if err != nil {
+				continue
 			}
-			name = string(cmdlineBuf[:i])
-			cmdlineBuf = bytes.Replace(cmdlineBuf, []byte{'\000'}, []byte{' '}, -1)
-			cmdline = string(cmdlineBuf)
-		}
 
-		f(Process{
-			PID:            pid,
-			PPID:           ppid,
-			Name:           name,
-			Cmdline:        cmdline,
-			Threads:        threads,
-			Jiffies:        jiffies,
-			RSSBytes:       rss,
-			RSSBytesLimit:  rssLimit,
-			OpenFilesCount: len(openFiles),
-			OpenFilesLimit: openFilesLimit,
-		}, Process{})
+			cmdline, name := cnproc.GetCmdline(pid)
+
+			w.walkOne(pid, filename, cmdline, name, f)
+		}
 	}
 
 	return nil
+}
+
+func (w *walker) walkOne(pid int, filename string, cmdline string, name string, f func(Process, Process)) {
+	pr := Process{
+		PID:     pid,
+		Name:    name,
+		Cmdline: cmdline,
+	}
+
+	defer f(pr, Process{})
+
+	var err error
+	pr.PPID, pr.Threads, pr.Jiffies, pr.RSSBytes, pr.RSSBytesLimit, err = readStats(path.Join(w.procRoot, filename, "stat"))
+	if err != nil {
+		return
+	}
+
+	openFiles, err := fs.ReadDirNames(path.Join(w.procRoot, filename, "fd"))
+	if err != nil {
+		return
+	}
+	pr.OpenFilesCount = len(openFiles)
+
+	pr.OpenFilesLimit, err = readLimits(path.Join(w.procRoot, filename, "limits"))
+	if err != nil {
+		return
+	}
 }
 
 var previousStat = linuxproc.CPUStat{}
