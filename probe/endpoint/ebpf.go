@@ -75,6 +75,7 @@ func newEbpfTracker(ebpfEnabled bool) eventTracker {
 		cmd:         cmd,
 		activeFlows: map[string]ebpfConnection{},
 	}
+	log.Info("EbpfTracker started")
 	go tracker.run()
 	return tracker
 }
