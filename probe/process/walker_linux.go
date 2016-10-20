@@ -138,7 +138,9 @@ func (w *walker) walkOne(pid int, filename string, cmdline string, name string, 
 	// terminated, we might not be able to get the dynamic details from
 	// /proc but at least we will have the basic details (pid, name,
 	// cmdline).
-	defer f(pr, Process{})
+	defer func() {
+		f(pr, Process{})
+	}()
 
 	var err error
 	pr.PPID, pr.Threads, pr.Jiffies, pr.RSSBytes, pr.RSSBytesLimit, err = readStats(path.Join(w.procRoot, filename, "stat"))
