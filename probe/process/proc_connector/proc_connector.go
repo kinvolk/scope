@@ -255,17 +255,22 @@ func (pc *ProcConnector) handleEvent(data []byte) {
 	case procEventFork:
 		event := &forkProcEvent{}
 		binary.Read(buf, byteOrder, event)
+
 		pid := int(event.ChildTgid)
+		tid := int(event.ChildPid)
 
-		cmdline, name := GetCmdline(pid)
+		// Don't care about threads
+		if pid == tid {
+			cmdline, name := GetCmdline(pid)
 
-		pc.lock.Lock()
-		pc.activePids[pid] = Process{
-			Pid:     pid,
-			Name:    name,
-			Cmdline: cmdline,
+			pc.lock.Lock()
+			pc.activePids[pid] = Process{
+				Pid:     pid,
+				Name:    name,
+				Cmdline: cmdline,
+			}
+			pc.lock.Unlock()
 		}
-		pc.lock.Unlock()
 
 	case procEventExec:
 		event := &execProcEvent{}
@@ -285,14 +290,21 @@ func (pc *ProcConnector) handleEvent(data []byte) {
 	case procEventExit:
 		event := &exitProcEvent{}
 		binary.Read(buf, byteOrder, event)
+
 		pid := int(event.ProcessTgid)
+		tid := int(event.ProcessPid)
 
-		pc.lock.Lock()
-		defer pc.lock.Unlock()
+		// Don't care about threads
+		if pid == tid {
+			pc.lock.Lock()
+			defer pc.lock.Unlock()
 
-		if pr, ok := pc.activePids[pid]; ok {
-			pc.bufferedPids = append(pc.bufferedPids, pr)
-			delete(pc.activePids, pid)
+			if pr, ok := pc.activePids[pid]; ok {
+				pc.bufferedPids = append(pc.bufferedPids, pr)
+				delete(pc.activePids, pid)
+			} else {
+				log.Infof("proc connector: unmatched exit event: %d", pid)
+			}
 		}
 
 	}
