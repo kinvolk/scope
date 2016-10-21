@@ -59,9 +59,10 @@ type ProcConnector struct {
 
 // Process represents a single process. Only include the constant details here.
 type Process struct {
-	Pid     int
-	Name    string
-	Cmdline string
+	Pid         int
+	InitialPpid int
+	Name        string
+	Cmdline     string
 }
 
 // linux/connector.h: struct cb_id
@@ -181,8 +182,10 @@ func NewProcConnector() (pc *ProcConnector, err error) {
 func GetCmdline(pid int) (name, cmdline string) {
 	name = "(unknown)"
 
+	// When a process is started, there is a short gap when cmdline could be empty.
+	// See comment on https://github.com/torvalds/linux/blob/v4.8/fs/proc/base.c#L221
 	cmdlineBuf, err := ioutil.ReadFile(path.Join("/proc", strconv.Itoa(pid), "cmdline"))
-	if err == nil {
+	if err == nil && len(cmdlineBuf) > 0 {
 		i := bytes.IndexByte(cmdlineBuf, '\000')
 		if i == -1 {
 			i = len(cmdlineBuf)
@@ -261,15 +264,19 @@ func (pc *ProcConnector) handleEvent(data []byte) {
 
 		// Don't care about threads
 		if pid == tid {
-			cmdline, name := GetCmdline(pid)
+			name, cmdline := GetCmdline(pid)
+
+			log.Infof("proc connector: fork event: pid=%d ppid=%d cmdline=%q name=%q", pid, int(event.ParentTgid), cmdline, name)
 
 			pc.lock.Lock()
+			defer pc.lock.Unlock()
+
 			pc.activePids[pid] = Process{
-				Pid:     pid,
-				Name:    name,
-				Cmdline: cmdline,
+				Pid:         pid,
+				InitialPpid: int(event.ParentTgid),
+				Name:        name,
+				Cmdline:     cmdline,
 			}
-			pc.lock.Unlock()
 		}
 
 	case procEventExec:
@@ -277,15 +284,28 @@ func (pc *ProcConnector) handleEvent(data []byte) {
 		binary.Read(buf, byteOrder, event)
 		pid := int(event.ProcessTgid)
 
-		cmdline, name := GetCmdline(pid)
+		name, cmdline := GetCmdline(pid)
 
 		pc.lock.Lock()
-		pc.activePids[pid] = Process{
-			Pid:     pid,
-			Name:    name,
-			Cmdline: cmdline,
+		defer pc.lock.Unlock()
+
+		pr := Process{
+			Pid:         pid,
+			InitialPpid: -1,
+			Name:        name,
+			Cmdline:     cmdline,
 		}
-		pc.lock.Unlock()
+		if oldPr, ok := pc.activePids[pid]; ok {
+			log.Infof("proc connector: exec event: pid=%d old{ppid=%d cmdline=%q name=%q} new{cmdline=%q name=%q}",
+				pid, oldPr.InitialPpid, oldPr.Cmdline, oldPr.Name, cmdline, name)
+
+			pr.InitialPpid = oldPr.InitialPpid
+			if pr.Cmdline == "" {
+				pr.Name = oldPr.Name
+				pr.Cmdline = oldPr.Cmdline
+			}
+		}
+		pc.activePids[pid] = pr
 
 	case procEventExit:
 		event := &exitProcEvent{}

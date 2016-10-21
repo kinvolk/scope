@@ -99,10 +99,13 @@ func readLimits(path string) (openFilesLimit uint64, err error) {
 // so that is can be tested.
 func (w *walker) Walk(f func(Process, Process)) error {
 	if w.procConnector.IsRunning() {
+		log.Infof("walker_linux: iterating over procconnector list")
 		w.procConnector.Walk(func(p procconnector.Process) {
 			filename := strconv.Itoa(p.Pid)
-			w.walkOne(p.Pid, filename, p.Cmdline, p.Name, f)
+			log.Infof("walker_linux: pid=%d ppid=%d cmdline=%q", p.Pid, p.InitialPpid, p.Cmdline)
+			w.walkOne(p.Pid, filename, p.InitialPpid, p.Cmdline, p.Name, f)
 		})
+		log.Infof("walker_linux: iterating over procconnector list: done")
 	} else {
 		dirEntries, err := fs.ReadDirNames(w.procRoot)
 		if err != nil {
@@ -120,16 +123,17 @@ func (w *walker) Walk(f func(Process, Process)) error {
 
 			cmdline, name := procconnector.GetCmdline(pid)
 
-			w.walkOne(pid, filename, cmdline, name, f)
+			w.walkOne(pid, filename, -1, cmdline, name, f)
 		}
 	}
 
 	return nil
 }
 
-func (w *walker) walkOne(pid int, filename string, cmdline string, name string, f func(Process, Process)) {
+func (w *walker) walkOne(pid int, filename string, initialPpid int, cmdline string, name string, f func(Process, Process)) {
 	pr := Process{
 		PID:     pid,
+		PPID:    initialPpid,
 		Name:    name,
 		Cmdline: cmdline,
 	}
@@ -143,10 +147,12 @@ func (w *walker) walkOne(pid int, filename string, cmdline string, name string, 
 	}()
 
 	var err error
-	pr.PPID, pr.Threads, pr.Jiffies, pr.RSSBytes, pr.RSSBytesLimit, err = readStats(path.Join(w.procRoot, filename, "stat"))
+	var ppid int
+	ppid, pr.Threads, pr.Jiffies, pr.RSSBytes, pr.RSSBytesLimit, err = readStats(path.Join(w.procRoot, filename, "stat"))
 	if err != nil {
 		return
 	}
+	pr.PPID = ppid
 
 	openFiles, err := fs.ReadDirNames(path.Join(w.procRoot, filename, "fd"))
 	if err != nil {
