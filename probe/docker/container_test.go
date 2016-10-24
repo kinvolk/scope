@@ -67,6 +67,7 @@ func TestContainer(t *testing.T) {
 			docker.ExecContainer:    {Dead: false},
 			docker.StartContainer:   {Dead: true},
 			docker.RemoveContainer:  {Dead: true},
+			docker.DebugContainer:   {Dead: false},
 		}
 		want := report.MakeNodeWith("ping;<container>", map[string]string{
 			"docker_container_command":     " ",

@@ -397,6 +397,7 @@ func (c *container) controlsMap() map[string]report.NodeControlData {
 		ExecContainer:    {Dead: !running},
 		StartContainer:   {Dead: !stopped},
 		RemoveContainer:  {Dead: !stopped},
+		DebugContainer:   {Dead: !running},
 	}
 }
 

@@ -1,6 +1,9 @@
 package docker
 
 import (
+	"math/rand"
+	"strconv"
+
 	docker_client "github.com/fsouza/go-dockerclient"
 
 	log "github.com/Sirupsen/logrus"
@@ -20,6 +23,7 @@ const (
 	RemoveContainer  = "docker_remove_container"
 	AttachContainer  = "docker_attach_container"
 	ExecContainer    = "docker_exec_container"
+	DebugContainer   = "docker_debug_container"
 
 	waitTime = 10
 )
@@ -105,6 +109,102 @@ func (r *registry) attachContainer(containerID string, req xfer.Request) xfer.Re
 	}
 }
 
+func (r *registry) debugContainer(containerID string, req xfer.Request) xfer.Response {
+	_, ok := r.GetContainer(containerID)
+	if !ok {
+		return xfer.ResponseErrorf("Not found: %s", containerID)
+	}
+
+	const chars = "abcdefghijklmnopqrstuvwxyz0123456789"
+	randomString := make([]byte, 8)
+	for i := 0; i < 8; i++ {
+		randomString[i] = chars[rand.Intn(len(chars))]
+	}
+
+	// find the list of processes
+	top, err := r.client.TopContainer(containerID, "")
+	if err != nil {
+		return xfer.ResponseError(err)
+	}
+	// heuristic: take the last process (likely the one that the user wants to debug)
+	lastProcess := 0
+	for _, proc := range top.Processes {
+		p, err := strconv.Atoi(proc[1])
+		if err == nil {
+			lastProcess = p
+		}
+		log.Infof("Process %v", proc[1])
+	}
+
+	cDbg, err := r.client.CreateContainer(docker_client.CreateContainerOptions{
+		Name: "debugger_" + containerID + "_" + string(randomString),
+		Config: &docker_client.Config{
+				OpenStdin:    true,
+				AttachStdin:  true,
+				AttachStderr: true,
+				AttachStdout: true,
+				Image:        "albanc/toolbox",
+				Cmd:          []string{
+					"/usr/bin/gdb",
+					"-p",
+					strconv.Itoa(lastProcess),
+				},
+				Tty:          true,
+			},
+	})
+	if err != nil {
+		return xfer.ResponseError(err)
+	}
+
+	err = r.client.StartContainer(cDbg.Name, &docker_client.HostConfig{
+		Privileged: true,
+		PidMode: "host",
+	})
+	if err != nil {
+		return xfer.ResponseError(err)
+	}
+
+	id, pipe, err := controls.NewPipe(r.pipes, req.AppID)
+	if err != nil {
+		return xfer.ResponseError(err)
+	}
+	local, _ := pipe.Ends()
+	cw, err := r.client.AttachToContainerNonBlocking(docker_client.AttachToContainerOptions{
+		Container:    cDbg.Name,
+		RawTerminal:  true,
+		Stream:       true,
+		Stdin:        true,
+		Stdout:       true,
+		Stderr:       true,
+		InputStream:  local,
+		OutputStream: local,
+		ErrorStream:  local,
+	})
+	if err != nil {
+		return xfer.ResponseError(err)
+	}
+	pipe.OnClose(func() {
+		if err := cw.Close(); err != nil {
+			log.Errorf("Error closing attachment to container %s: %v", cDbg.Name, err)
+			return
+		}
+		if err := r.client.StopContainer(cDbg.Name, 1); err != nil {
+			log.Errorf("Error stopping container %s: %v", cDbg.Name, err)
+			return
+		}
+	})
+	go func() {
+		if err := cw.Wait(); err != nil {
+			log.Errorf("Error waiting on attachment to container %s: %v", cDbg.Name, err)
+		}
+		pipe.Close()
+	}()
+	return xfer.Response{
+		Pipe:   id,
+		RawTTY: true,
+	}
+}
+
 func (r *registry) execContainer(containerID string, req xfer.Request) xfer.Response {
 	exec, err := r.client.CreateExec(docker_client.CreateExecOptions{
 		AttachStdin:  true,
@@ -171,6 +271,7 @@ func (r *registry) registerControls() {
 		RemoveContainer:  captureContainerID(r.removeContainer),
 		AttachContainer:  captureContainerID(r.attachContainer),
 		ExecContainer:    captureContainerID(r.execContainer),
+		DebugContainer:   captureContainerID(r.debugContainer),
 	}
 	r.handlerRegistry.Batch(nil, controls)
 }
@@ -185,6 +286,7 @@ func (r *registry) deregisterControls() {
 		RemoveContainer,
 		AttachContainer,
 		ExecContainer,
+		DebugContainer,
 	}
 	r.handlerRegistry.Batch(controls, nil)
 }

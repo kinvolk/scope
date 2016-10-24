@@ -76,6 +76,7 @@ type Client interface {
 	AddEventListener(chan<- *docker_client.APIEvents) error
 	RemoveEventListener(chan *docker_client.APIEvents) error
 
+	CreateContainer(docker_client.CreateContainerOptions) (*docker_client.Container, error)
 	StopContainer(string, uint) error
 	StartContainer(string, *docker_client.HostConfig) error
 	RestartContainer(string, uint) error
@@ -86,6 +87,7 @@ type Client interface {
 	CreateExec(docker_client.CreateExecOptions) (*docker_client.Exec, error)
 	StartExecNonBlocking(string, docker_client.StartExecOptions) (docker_client.CloseWaiter, error)
 	Stats(docker_client.StatsOptions) error
+	TopContainer(string,string) (docker_client.TopResult, error)
 }
 
 func newDockerClient(endpoint string) (Client, error) {

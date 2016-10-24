@@ -67,40 +67,46 @@ var (
 			Rank:  2,
 		},
 		{
+			ID:    DebugContainer,
+			Human: "Debug",
+			Icon:  "fa-bug",
+			Rank:  3,
+		},
+		{
 			ID:    StartContainer,
 			Human: "Start",
 			Icon:  "fa-play",
-			Rank:  3,
+			Rank:  4,
 		},
 		{
 			ID:    RestartContainer,
 			Human: "Restart",
 			Icon:  "fa-repeat",
-			Rank:  4,
+			Rank:  5,
 		},
 		{
 			ID:    PauseContainer,
 			Human: "Pause",
 			Icon:  "fa-pause",
-			Rank:  5,
+			Rank:  6,
 		},
 		{
 			ID:    UnpauseContainer,
 			Human: "Unpause",
 			Icon:  "fa-play",
-			Rank:  6,
+			Rank:  7,
 		},
 		{
 			ID:    StopContainer,
 			Human: "Stop",
 			Icon:  "fa-stop",
-			Rank:  7,
+			Rank:  8,
 		},
 		{
 			ID:    RemoveContainer,
 			Human: "Remove",
 			Icon:  "fa-trash-o",
-			Rank:  8,
+			Rank:  9,
 		},
 	}
 )
