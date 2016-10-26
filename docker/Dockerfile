@@ -6,7 +6,7 @@ RUN apt-get update -y && apt-get install -y bash runit conntrack iproute2 util-l
 ADD ./docker.tgz /
 ADD ./demo.json /
 ADD ./weave /usr/bin/
-COPY ./scope ./runsvinit ./entrypoint.sh ./tcpv4tracer.py /home/weave/
+COPY ./scope ./runsvinit ./entrypoint.sh ./tcptracer.py /home/weave/
 COPY ./run-app /etc/service/app/run
 COPY ./run-probe /etc/service/probe/run
 EXPOSE 4040

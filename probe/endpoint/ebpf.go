@@ -14,7 +14,7 @@ import (
 
 // TCPV4TracerLocation is the location of the Python script
 // that delivers the eBPF messages coming from the kernel.
-var TCPV4TracerLocation = "/home/weave/tcpv4tracer.py"
+var TCPV4TracerLocation = "/home/weave/tcptracer.py"
 
 // A ebpfConnection represents a network connection
 type ebpfConnection struct {
