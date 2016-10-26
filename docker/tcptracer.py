@@ -41,7 +41,6 @@ bpf_text = """
 struct tcp_ipv4_event_t {
     u32 type;
     u32 pid;
-    u8 ip;
     u32 saddr;
     u32 daddr;
     u16 sport;
@@ -53,7 +52,6 @@ BPF_PERF_OUTPUT(tcp_ipv4_event);
 struct tcp_ipv6_event_t {
     u32 type;
     u32 pid;
-    u8 ip;
     unsigned __int128 saddr;
     unsigned __int128 daddr;
     u16 sport;
@@ -418,7 +416,6 @@ int trace_tcp_set_state_return(struct pt_regs *ctx)
 
       evt4.type = TCP_EVENT_TYPE_CONNECT;
       evt4.pid = p->pid >> 32;
-      evt4.ip = ipver;
       evt4.saddr = saddr;
       evt4.daddr = daddr;
       evt4.sport = ntohs(sport);
@@ -457,7 +454,6 @@ int trace_tcp_set_state_return(struct pt_regs *ctx)
 
       evt6.type = TCP_EVENT_TYPE_CONNECT;
       evt6.pid = p->pid >> 32;
-      evt6.ip = ipver;
       evt6.saddr = saddr;
       evt6.daddr = daddr;
       evt6.sport = ntohs(sport);
@@ -526,7 +522,6 @@ int trace_close_entry(struct pt_regs *ctx, struct sock *sk)
 
       evt4.type = TCP_EVENT_TYPE_CLOSE;
       evt4.pid = pid >> 32;
-      evt4.ip = ipver;
       evt4.saddr = saddr;
       evt4.daddr = daddr;
       evt4.sport = ntohs(sport);
@@ -552,7 +547,6 @@ int trace_close_entry(struct pt_regs *ctx, struct sock *sk)
 
       evt6.type = TCP_EVENT_TYPE_CLOSE;
       evt6.pid = pid >> 32;
-      evt6.ip = ipver;
       evt6.saddr = saddr;
       evt6.daddr = daddr;
       evt6.sport = ntohs(sport);
@@ -621,7 +615,6 @@ int trace_accept_return(struct pt_regs *ctx)
 
       evt4.type = TCP_EVENT_TYPE_ACCEPT;
       evt4.pid = pid >> 32;
-      evt4.ip = ipver;
       evt4.saddr = saddr;
       evt4.daddr = daddr;
       evt4.sport = lport;
@@ -647,7 +640,6 @@ int trace_accept_return(struct pt_regs *ctx)
 
       evt6.type = TCP_EVENT_TYPE_ACCEPT;
       evt6.pid = pid >> 32;
-      evt6.ip = ipver;
       evt6.saddr = saddr;
       evt6.daddr = daddr;
       evt6.sport = lport;
@@ -666,7 +658,6 @@ class TCPIPV4Evt(ctypes.Structure):
     _fields_ = [
             ("type", ctypes.c_uint),
             ("pid", ctypes.c_uint),
-            ("ip", ctypes.c_ubyte),
             ("saddr", ctypes.c_uint),
             ("daddr", ctypes.c_uint),
             ("sport", ctypes.c_ushort),
@@ -678,7 +669,6 @@ class TCPIPV6Evt(ctypes.Structure):
     _fields_ = [
             ("type", ctypes.c_uint),
             ("pid", ctypes.c_uint),
-            ("ip", ctypes.c_ubyte),
             ("saddr", (ctypes.c_ulong * 2)),
             ("daddr", (ctypes.c_ulong * 2)),
             ("sport", ctypes.c_ushort),
@@ -705,8 +695,7 @@ def print_ipv4_event(cpu, data, size):
     else:
         print("%-2s " % (type_str), end="")
 
-    print("%-6d %-2d %-16s %-16s %-6d %-6d" % (event.pid,
-        event.ip,
+    print("%-6d %-16s %-16s %-6d %-6d" % (event.pid,
         inet_ntop(AF_INET, pack("I", event.saddr)),
         inet_ntop(AF_INET, pack("I", event.daddr)),
         event.sport,
@@ -733,8 +722,7 @@ def print_ipv6_event(cpu, data, size):
     else:
         print("%-2s " % (type_str), end="")
 
-    print("%-6d %-2d %-16s %-16s %-6d %-6d" % (event.pid,
-        event.ip,
+    print("%-6d %-16s %-16s %-6d %-6d" % (event.pid,
         inet_ntop(AF_INET6, event.saddr),
         inet_ntop(AF_INET6, event.daddr),
         event.sport,
@@ -768,11 +756,9 @@ b.attach_kretprobe(event="inet_csk_accept", fn_name="trace_accept_return")
 
 # header
 if args.verbose:
-    print("%-12s %-6s %-2s %-16s %-16s %-6s %-6s %-8s" % ("TYPE",
-          "PID", "IP", "SADDR", "DADDR", "SPORT", "DPORT", "NETNS"))
+    print("%-12s %-6s %-16s %-16s %-6s %-6s %-8s" % ("TYPE", "PID", "SADDR", "DADDR", "SPORT", "DPORT", "NETNS"))
 else:
-    print("%-2s %-6s %-2s %-16s %-16s %-6s %-6s" %
-          ("T", "PID", "IP", "SADDR", "DADDR", "SPORT", "DPORT"))
+    print("%-2s %-6s %-16s %-16s %-6s %-6s" % ("T", "PID", "SADDR", "DADDR", "SPORT", "DPORT"))
 
 def inet_ntoa(addr):
     dq = ''
