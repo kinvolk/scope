@@ -747,8 +747,6 @@ bpf_text = bpf_text.replace('##FILTER_NETNS##', netns_filter)
 b = BPF(text=bpf_text)
 b.attach_kprobe(event="tcp_v4_connect", fn_name="trace_connect_v4_entry")
 b.attach_kretprobe(event="tcp_v4_connect", fn_name="trace_connect_v4_return")
-b.attach_kprobe(event="tcp_v6_connect", fn_name="trace_connect_v6_entry")
-b.attach_kretprobe(event="tcp_v6_connect", fn_name="trace_connect_v6_return")
 b.attach_kprobe(event="tcp_set_state", fn_name="trace_tcp_set_state_entry")
 b.attach_kretprobe(event="tcp_set_state", fn_name="trace_tcp_set_state_return")
 b.attach_kprobe(event="tcp_close", fn_name="trace_close_entry")
@@ -770,7 +768,6 @@ def inet_ntoa(addr):
     return dq
 
 b["tcp_ipv4_event"].open_perf_buffer(print_ipv4_event)
-b["tcp_ipv6_event"].open_perf_buffer(print_ipv6_event)
 while True:
     b.kprobe_poll()
 
