@@ -224,12 +224,12 @@ func (pc *ProcConnector) subscribe(addr *syscall.SockaddrNetlink) error {
 }
 
 func (pc *ProcConnector) receive() {
-	buf := make([]byte, syscall.Getpagesize())
+	buf := make([]byte, 16*syscall.Getpagesize())
 
 	for {
 		nr, _, err := syscall.Recvfrom(pc.sockfd, buf, 0)
 		if err != nil {
-			log.Errorf("Proc connector failed to receive a message")
+			log.Errorf("Proc connector failed to receive a message: %v", err)
 			pc.running = false
 			return
 		}
