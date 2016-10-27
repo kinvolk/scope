@@ -60,7 +60,7 @@ func newEbpfTracker(ebpfEnabled bool) eventTracker {
 	if !ebpfEnabled {
 		return &nilTracker{}
 	}
-	cmd := exec.Command(TCPV4TracerLocation)
+	cmd := exec.Command(TCPV4TracerLocation, "--verbose")
 	env := os.Environ()
 	cmd.Env = append(env, "PYTHONUNBUFFERED=1")
 
