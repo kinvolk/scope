@@ -92,6 +92,7 @@ func (t *EbpfTracker) handleFlow(eventType string, tuple fourTuple, pid int, net
 			pid:              pid,
 			networkNamespace: networkNamespace,
 		}
+		log.Infof("ebpf connect to server: %v", conn)
 		t.activeFlows[tuple.String()] = conn
 	case "accept":
 		conn := ebpfConnection{
@@ -106,7 +107,7 @@ func (t *EbpfTracker) handleFlow(eventType string, tuple fourTuple, pid int, net
 			delete(t.activeFlows, tuple.String())
 			t.bufferedFlows = append(t.bufferedFlows, deadConn)
 		} else {
-			log.Errorf("EbpfTracker error: unmatched close event: %s pid=%d netns=%s", tuple.String(), pid, networkNamespace)
+			// log.Errorf("EbpfTracker error: unmatched close event: %s pid=%d netns=%s", tuple.String(), pid, networkNamespace)
 		}
 	}
 

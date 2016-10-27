@@ -182,6 +182,8 @@ func (r *Reporter) Report() (report.Report, error) {
 				fromNodeInfo[report.HostNodeID] = hostNodeID
 			}
 
+			// log.Infof("reporter adding connection to server: %v", e)
+
 			if e.incoming {
 				r.addConnection(&rpt, reverse(e.tuple), e.networkNamespace, toNodeInfo, fromNodeInfo)
 			} else {
