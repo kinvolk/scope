@@ -14,6 +14,7 @@ import (
 
 // TCPV4TracerLocation is the location of the Python script
 // that delivers the eBPF messages coming from the kernel.
+// The script is located inside the Docker container in which scope executes.
 var TCPV4TracerLocation = "/home/weave/tcpv4tracer.py"
 
 // A ebpfConnection represents a network connection
@@ -44,15 +45,19 @@ func (n nilTracker) walkFlows(f func(ebpfConnection))                  {}
 func (n nilTracker) initialize()                                       {}
 func (n nilTracker) isInitialized() bool                               { return false }
 
-// EbpfTracker contains the list of eBPF events, and the eBPF script's command
+// EbpfTracker contains the sets of open and closed TCP connections.
+// Closed connections are kept in the `bufferedFlows` slice for one iteration of `walkFlows`.
 type EbpfTracker struct {
 	sync.Mutex
+	// the eBPF script command
 	cmd *exec.Cmd
 
 	initialized bool
 	dead        bool
 
-	activeFlows   map[string]ebpfConnection
+	// active connections
+	activeFlows map[string]ebpfConnection
+	// closed connections
 	bufferedFlows []ebpfConnection
 }
 
@@ -135,7 +140,7 @@ func (t *EbpfTracker) run() {
 	}()
 
 	reader := bufio.NewReader(stdout)
-	// skip fist line
+	// skip first line of output table, containing the headers
 	if _, err := reader.ReadString('\n'); err != nil {
 		log.Errorf("EbpfTracker error: %v", err)
 		return
