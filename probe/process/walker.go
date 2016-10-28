@@ -20,14 +20,13 @@ type Walker interface {
 	Walk(func(Process, Process)) error
 }
 
-// CachingWalker is a walker that wraps a platform-specific walker (source),
-// triggers it at every Tick() and caches a copy of the output, to allow
-// other concurrent readers to Walk that copy.
+// CachingWalker is a walker than caches a copy of the output from another
+// Walker, and then allows other concurrent readers to Walk that copy.
 type CachingWalker struct {
 	cache         map[int]Process
 	previousByPID map[int]Process
 	cacheLock     sync.RWMutex
-	source        Walker // the wrapped, platform-specific walker
+	source        Walker
 }
 
 // NewCachingWalker returns a new CachingWalker
@@ -42,6 +41,7 @@ func (*CachingWalker) Name() string { return "Process" }
 func (c *CachingWalker) Walk(f func(Process, Process)) error {
 	c.cacheLock.RLock()
 	defer c.cacheLock.RUnlock()
+
 	for _, p := range c.cache {
 		f(p, c.previousByPID[p.PID])
 	}
@@ -54,7 +54,6 @@ func (c *CachingWalker) Tick() error {
 	err := c.source.Walk(func(p, _ Process) {
 		newCache[p.PID] = p
 	})
-
 	if err != nil {
 		return err
 	}
