@@ -29,7 +29,7 @@ type ReporterConfig struct {
 	SpyProcs     bool
 	UseConntrack bool
 	WalkProc     bool
-	EbpfEnabled  bool
+	UseEbpfConn  bool
 	ProcRoot     string
 	BufferSize   int
 	Scanner      procspy.ConnectionScanner
@@ -66,7 +66,7 @@ func NewReporter(conf ReporterConfig) *Reporter {
 	return &Reporter{
 		conf:            conf,
 		flowWalker:      newConntrackFlowWalker(conf.UseConntrack, conf.ProcRoot, conf.BufferSize),
-		ebpfTracker:     newEbpfTracker(conf.EbpfEnabled),
+		ebpfTracker:     newEbpfTracker(conf.UseEbpfConn),
 		natMapper:       makeNATMapper(newConntrackFlowWalker(conf.UseConntrack, conf.ProcRoot, conf.BufferSize, "--any-nat")),
 		reverseResolver: newReverseResolver(),
 	}
@@ -168,7 +168,7 @@ func (r *Reporter) Report() (report.Report, error) {
 	}
 
 	// eBPF
-	if r.conf.EbpfEnabled && !r.ebpfTracker.hasDied() {
+	if r.conf.UseEbpfConn && !r.ebpfTracker.hasDied() {
 		r.ebpfTracker.walkConnections(func(e ebpfConnection) {
 			fromNodeInfo := map[string]string{
 				Procspied: "true",
@@ -229,7 +229,7 @@ func newu64(i uint64) *uint64 {
 // procParsingSwitcher make sure that if eBPF tracking is enabled,
 // connections coming from /proc parsing are only walked once.
 func (r *Reporter) procParsingSwitcher() {
-	if r.conf.WalkProc && r.conf.EbpfEnabled {
+	if r.conf.WalkProc && r.conf.UseEbpfConn {
 		r.conf.WalkProc = false
 		r.ebpfTracker.initialize()
 	}
@@ -239,7 +239,7 @@ func (r *Reporter) procParsingSwitcher() {
 // incoming connections correspond to "accept" events
 // outgoing connections correspond to "connect" events
 func (r Reporter) feedToEbpf(tuple fourTuple, incoming bool, pid int, namespaceID string) {
-	if r.conf.EbpfEnabled && !r.ebpfTracker.isInitialized() {
+	if r.conf.UseEbpfConn && !r.ebpfTracker.isInitialized() {
 		tcpEventType := "connect"
 
 		if incoming {
