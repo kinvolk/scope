@@ -17,7 +17,7 @@ import (
 // The script is located inside the Docker container in which scope executes.
 var TCPV4TracerLocation = "/home/weave/tcpv4tracer.py"
 
-// A ebpfConnection represents a network connection
+// An ebpfConnection represents a TCP connection
 type ebpfConnection struct {
 	tuple            fourTuple
 	networkNamespace string
@@ -26,10 +26,10 @@ type ebpfConnection struct {
 }
 
 type eventTracker interface {
-	handleFlow(eventType string, tuple fourTuple, pid int, networkNamespace string)
+	handleConnection(eventType string, tuple fourTuple, pid int, networkNamespace string)
 	hasDied() bool
 	run()
-	walkFlows(f func(ebpfConnection))
+	walkConnections(f func(ebpfConnection))
 	initialize()
 	isInitialized() bool
 }
@@ -38,15 +38,15 @@ type eventTracker interface {
 // It is returned when the ebpfEnabled flag is false.
 type nilTracker struct{}
 
-func (n nilTracker) handleFlow(_ string, _ fourTuple, _ int, _ string) {}
-func (n nilTracker) hasDied() bool                                     { return true }
-func (n nilTracker) run()                                              {}
-func (n nilTracker) walkFlows(f func(ebpfConnection))                  {}
-func (n nilTracker) initialize()                                       {}
-func (n nilTracker) isInitialized() bool                               { return false }
+func (n nilTracker) handleConnection(_ string, _ fourTuple, _ int, _ string) {}
+func (n nilTracker) hasDied() bool                                           { return true }
+func (n nilTracker) run()                                                    {}
+func (n nilTracker) walkConnections(f func(ebpfConnection))                  {}
+func (n nilTracker) initialize()                                             {}
+func (n nilTracker) isInitialized() bool                                     { return false }
 
 // EbpfTracker contains the sets of open and closed TCP connections.
-// Closed connections are kept in the `bufferedFlows` slice for one iteration of `walkFlows`.
+// Closed connections are kept in the `closedConnections` slice for one iteration of `walkConnections`.
 type EbpfTracker struct {
 	sync.Mutex
 	// the eBPF script command
@@ -56,9 +56,9 @@ type EbpfTracker struct {
 	dead        bool
 
 	// active connections
-	activeFlows map[string]ebpfConnection
+	openConnections map[string]ebpfConnection
 	// closed connections
-	bufferedFlows []ebpfConnection
+	closedConnections []ebpfConnection
 }
 
 func newEbpfTracker(ebpfEnabled bool) eventTracker {
@@ -77,15 +77,15 @@ func newEbpfTracker(ebpfEnabled bool) eventTracker {
 	go logPipe("EbpfTracker stderr:", stderr)
 
 	tracker := &EbpfTracker{
-		cmd:         cmd,
-		activeFlows: map[string]ebpfConnection{},
+		cmd:             cmd,
+		openConnections: map[string]ebpfConnection{},
 	}
 	log.Info("EbpfTracker started")
 	go tracker.run()
 	return tracker
 }
 
-func (t *EbpfTracker) handleFlow(eventType string, tuple fourTuple, pid int, networkNamespace string) {
+func (t *EbpfTracker) handleConnection(eventType string, tuple fourTuple, pid int, networkNamespace string) {
 	t.Lock()
 	defer t.Unlock()
 
@@ -97,7 +97,7 @@ func (t *EbpfTracker) handleFlow(eventType string, tuple fourTuple, pid int, net
 			pid:              pid,
 			networkNamespace: networkNamespace,
 		}
-		t.activeFlows[tuple.String()] = conn
+		t.openConnections[tuple.String()] = conn
 	case "accept":
 		conn := ebpfConnection{
 			incoming:         true,
@@ -105,11 +105,11 @@ func (t *EbpfTracker) handleFlow(eventType string, tuple fourTuple, pid int, net
 			pid:              pid,
 			networkNamespace: networkNamespace,
 		}
-		t.activeFlows[tuple.String()] = conn
+		t.openConnections[tuple.String()] = conn
 	case "close":
-		if deadConn, ok := t.activeFlows[tuple.String()]; ok {
-			delete(t.activeFlows, tuple.String())
-			t.bufferedFlows = append(t.bufferedFlows, deadConn)
+		if deadConn, ok := t.openConnections[tuple.String()]; ok {
+			delete(t.openConnections, tuple.String())
+			t.closedConnections = append(t.closedConnections, deadConn)
 		} else {
 			log.Errorf("EbpfTracker error: unmatched close event: %s pid=%d netns=%s", tuple.String(), pid, networkNamespace)
 		}
@@ -196,23 +196,23 @@ func (t *EbpfTracker) run() {
 
 		tuple := fourTuple{sourceAddr.String(), destAddr.String(), sourcePort, destPort}
 
-		t.handleFlow(eventType, tuple, pid, networkNamespace)
+		t.handleConnection(eventType, tuple, pid, networkNamespace)
 	}
 }
 
-// walkFlows calls f with all active flows and flows that have come and gone
-// since the last call to walkFlows
-func (t *EbpfTracker) walkFlows(f func(ebpfConnection)) {
+// walkConnections calls f with all open connections and connections that have come and gone
+// since the last call to walkConnections
+func (t *EbpfTracker) walkConnections(f func(ebpfConnection)) {
 	t.Lock()
 	defer t.Unlock()
 
-	for _, flow := range t.activeFlows {
-		f(flow)
+	for _, connection := range t.openConnections {
+		f(connection)
 	}
-	for _, flow := range t.bufferedFlows {
-		f(flow)
+	for _, connection := range t.closedConnections {
+		f(connection)
 	}
-	t.bufferedFlows = t.bufferedFlows[:0]
+	t.closedConnections = t.closedConnections[:0]
 }
 
 func (t *EbpfTracker) hasDied() bool {

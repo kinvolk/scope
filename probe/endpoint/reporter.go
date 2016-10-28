@@ -81,6 +81,7 @@ func (r *Reporter) Stop() {
 	r.natMapper.stop()
 	r.reverseResolver.stop()
 	r.conf.Scanner.Stop()
+	// TODO add a Stop method for ebpfTracker
 }
 
 // Report implements Reporter.
@@ -168,7 +169,7 @@ func (r *Reporter) Report() (report.Report, error) {
 
 	// eBPF
 	if r.conf.EbpfEnabled && !r.ebpfTracker.hasDied() {
-		r.ebpfTracker.walkFlows(func(e ebpfConnection) {
+		r.ebpfTracker.walkConnections(func(e ebpfConnection) {
 			fromNodeInfo := map[string]string{
 				Procspied: "true",
 				EBPF:      "true",
@@ -245,6 +246,6 @@ func (r Reporter) feedToEbpf(tuple fourTuple, incoming bool, pid int, namespaceI
 			tcpEventType = "accept"
 		}
 
-		r.ebpfTracker.handleFlow(tcpEventType, tuple, pid, namespaceID)
+		r.ebpfTracker.handleConnection(tcpEventType, tuple, pid, namespaceID)
 	}
 }
