@@ -143,7 +143,7 @@ func probeMain(flags probeFlags, targets []appclient.Target) {
 		processCache.Tick()
 		p.AddTicker(processCache)
 		// if eBPF tracking is enabled, scan /proc synchronously, and just once
-		if flags.ebpfEnabled {
+		if flags.useEbpfConn {
 			scanner = procspy.NewSyncConnectionScanner(processCache)
 		} else {
 			scanner = procspy.NewConnectionScanner(processCache)
@@ -164,7 +164,7 @@ func probeMain(flags probeFlags, targets []appclient.Target) {
 		SpyProcs:     flags.spyProcs,
 		UseConntrack: flags.useConntrack,
 		WalkProc:     flags.procEnabled,
-		EbpfEnabled:  flags.ebpfEnabled,
+		useEbpfConn:  flags.useEbpfConn,
 		ProcRoot:     flags.procRoot,
 		BufferSize:   flags.conntrackBufferSize,
 		Scanner:      scanner,

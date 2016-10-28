@@ -35,7 +35,7 @@ type eventTracker interface {
 }
 
 // nilTracker is a tracker that does nothing, and it implements the eventTracker interface.
-// It is returned when the ebpfEnabled flag is false.
+// It is returned when the useEbpfConn flag is false.
 type nilTracker struct{}
 
 func (n nilTracker) handleConnection(_ string, _ fourTuple, _ int, _ string) {}
@@ -59,8 +59,8 @@ type EbpfTracker struct {
 	closedConnections []ebpfConnection
 }
 
-func newEbpfTracker(ebpfEnabled bool) eventTracker {
-	if !ebpfEnabled {
+func newEbpfTracker(useEbpfConn bool) eventTracker {
+	if !useEbpfConn {
 		return &nilTracker{}
 	}
 	cmd := exec.Command(TCPV4TracerLocation)
