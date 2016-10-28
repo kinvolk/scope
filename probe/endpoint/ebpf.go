@@ -55,9 +55,7 @@ type EbpfTracker struct {
 	initialized bool
 	dead        bool
 
-	// active connections
-	openConnections map[string]ebpfConnection
-	// closed connections
+	openConnections   map[string]ebpfConnection
 	closedConnections []ebpfConnection
 }
 

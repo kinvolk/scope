@@ -17,7 +17,7 @@ func (t fourTuple) String() string {
 }
 
 // key is a sortable direction-independent key for tuples, used to look up a
-// fourTuple, when you are unsure of it's direction.
+// fourTuple when you are unsure of its direction.
 func (t fourTuple) key() string {
 	key := []string{
 		fmt.Sprintf("%s:%d", t.fromAddr, t.fromPort),
