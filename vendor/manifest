@@ -923,6 +923,33 @@
 			"branch": "master"
 		},
 		{
+			"importpath": "github.com/iovisor/iomodules/hover/api",
+			"repository": "https://github.com/iovisor/iomodules",
+			"vcs": "git",
+			"revision": "4880c9ca79cb6f87977f39578c0f33732bed74d9",
+			"branch": "master",
+			"path": "hover/api",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/iovisor/iomodules/hover/bpf",
+			"repository": "https://github.com/iovisor/iomodules",
+			"vcs": "git",
+			"revision": "9da230746e2b90f9c4d3e22f7211e904e2a17d16",
+			"branch": "master",
+			"path": "/hover/bpf",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/iovisor/iomodules/hover/util",
+			"repository": "https://github.com/iovisor/iomodules",
+			"vcs": "git",
+			"revision": "4880c9ca79cb6f87977f39578c0f33732bed74d9",
+			"branch": "master",
+			"path": "hover/util",
+			"notests": true
+		},
+		{
 			"importpath": "github.com/jmespath/go-jmespath",
 			"repository": "https://github.com/jmespath/go-jmespath",
 			"vcs": "",
@@ -1263,6 +1290,14 @@
 			"vcs": "",
 			"revision": "7935dab3074ca1d47c8805e0230f8685116b6019",
 			"branch": "master"
+		},
+		{
+			"importpath": "github.com/willf/bitset",
+			"repository": "https://github.com/willf/bitset",
+			"vcs": "git",
+			"revision": "85301ea3894aa6d640cbc2afccc0994239444300",
+			"branch": "master",
+			"notests": true
 		},
 		{
 			"importpath": "golang.org/x/crypto/curve25519",
