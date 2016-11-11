@@ -157,8 +157,16 @@ int kretprobe__tcp_close(struct pt_regs *ctx)
 		return 0;	// missed entry
 	}
 
+	closesock.delete(&pid);
+
 	// pull in details
 	struct sock *skp = *skpp;
+	u16 family = 0;
+	bpf_probe_read(&family, sizeof(family), &skp->__sk_common.skc_family);
+	if (family != AF_INET) {
+		return 0;
+	}
+
 	u32 saddr = 0, daddr = 0, net_ns_inum = 0;
 	u16 sport = 0, dport = 0;
 	bpf_probe_read(&saddr, sizeof(saddr), &skp->__sk_common.skc_rcv_saddr);
@@ -192,8 +200,6 @@ int kretprobe__tcp_close(struct pt_regs *ctx)
 	if (evt.saddr != 0 && evt.daddr != 0 && evt.sport != 0 && evt.dport != 0) {
 		tcp_event.perf_submit(ctx, &evt, sizeof(evt));
 	}
-
-	closesock.delete(&pid);
 
 	return 0;
 }
