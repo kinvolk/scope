@@ -44,24 +44,16 @@ func (pc ProbeConfig) authorizedRequest(method string, urlStr string, body io.Re
 }
 
 func (pc ProbeConfig) getHTTPTransport(hostname string) (*http.Transport, error) {
-	var tlsConfig *tls.Config
 	if pc.Insecure {
-		tlsConfig = &tls.Config{InsecureSkipVerify: true}
-	} else {
-		tlsConfig = &tls.Config{
+		return &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}, nil
+	}
+
+	return &http.Transport{
+		TLSClientConfig: &tls.Config{
 			RootCAs:    certPool,
 			ServerName: hostname,
-		}
-	}
-	return &http.Transport{
-		TLSClientConfig: tlsConfig,
-
-		DialContext: (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).DialContext,
-		IdleConnTimeout:       http.DefaultTransport.IdleConnTimeout,
-		TLSHandshakeTimeout:   http.DefaultTransport.TLSHandshakeTimeout,
-		ExpectContinueTimeout: http.DefaultTransport.ExpectContinueTimeout,
-	}
+		},
+	}, nil
 }
