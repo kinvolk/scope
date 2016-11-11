@@ -82,8 +82,7 @@ func NewAppClient(pc ProbeConfig, hostname string, target url.URL, control xfer.
 			Timeout:   httpClientTimeout,
 		},
 		wsDialer: websocket.Dialer{
-			TLSClientConfig:  httpTransport.TLSClientConfig,
-			HandshakeTimeout: httpClientTimeout,
+			TLSClientConfig: httpTransport.TLSClientConfig,
 		},
 		conns:   map[string]xfer.Websocket{},
 		readers: make(chan io.Reader, 2),
