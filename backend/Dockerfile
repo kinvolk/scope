@@ -3,7 +3,7 @@ ENV GOPATH /go
 ENV PATH /go/bin:/usr/lib/go-1.7/bin:/usr/bin:/bin:/usr/sbin:/sbin
 RUN echo "deb [trusted=yes] http://52.8.15.63/apt/xenial xenial-nightly main" > /etc/apt/sources.list.d/iovisor.list
 RUN apt-get update && \
-	apt-get install -y libpcap-dev python-requests time file shellcheck libelf1 bcc-tools libbcc golang-1.7 git && \
+	apt-get install -y libpcap-dev python-requests time file shellcheck libelf1 bcc-tools libbcc golang git && \
 	rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 RUN go clean -i net && \
 	go install -tags netgo std && \
