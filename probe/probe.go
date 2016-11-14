@@ -1,12 +1,15 @@
 package probe
 
 import (
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/armon/go-metrics"
 
+	"github.com/weaveworks/scope/common/fs"
 	"github.com/weaveworks/scope/probe/appclient"
 	"github.com/weaveworks/scope/report"
 )
@@ -209,9 +212,39 @@ func (p *Probe) publishLoop() {
 	defer p.done.Done()
 	pubTick := time.Tick(p.publishInterval)
 
+	var prevUserJiffies uint64 = 0
+	var prevSysJiffies uint64 = 0
+
+	/* On my system: getconf CLK_TCK 100 */
+	const JiffiesDurationMs uint64 = 10
+
+	since := time.Now()
+
 	for {
 		select {
 		case <-pubTick:
+			buf, err := fs.ReadFile("/proc/self/stat")
+			if err != nil {
+				log.Errorf("cannot read self stat: %v", err)
+			}
+			splits := strings.Fields(string(buf))
+			if len(splits) < 25 {
+				log.Errorf("invalid self stat: %v", splits)
+			} else {
+				after := time.Now()
+				userJiffies, _ := strconv.ParseUint(splits[13], 10, 64)
+				sysJiffies, _ := strconv.ParseUint(splits[14], 10, 64)
+
+				log.Infof("drainAndPublish: cputime: user= %v ms ; sys= %v ms [total= %v ms] (last time %v ago)",
+					(userJiffies-prevUserJiffies)*JiffiesDurationMs,
+					(sysJiffies-prevSysJiffies)*JiffiesDurationMs,
+					(userJiffies-prevUserJiffies)*JiffiesDurationMs+(sysJiffies-prevSysJiffies)*JiffiesDurationMs,
+					after.Sub(since))
+
+				prevUserJiffies = userJiffies
+				prevSysJiffies = sysJiffies
+				since = after
+			}
 			p.drainAndPublish(report.MakeReport(), p.spiedReports)
 
 		case rpt := <-p.shortcutReports:
