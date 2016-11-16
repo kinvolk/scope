@@ -11,6 +11,7 @@ import (
 
 	"github.com/weaveworks/scope/common/fs"
 	"github.com/weaveworks/scope/probe/appclient"
+	"github.com/weaveworks/scope/probe/endpoint"
 	"github.com/weaveworks/scope/report"
 )
 
@@ -244,6 +245,11 @@ func (p *Probe) publishLoop() {
 				prevUserJiffies = userJiffies
 				prevSysJiffies = sysJiffies
 				since = after
+			}
+			log.Infof("addConnection[0] = %d", endpoint.AddConnectionCounters[0])
+			log.Infof("addConnection[1] = %d", endpoint.AddConnectionCounters[1])
+			for i, _ := range endpoint.AddConnectionCounters {
+				endpoint.AddConnectionCounters[i] = 0
 			}
 			p.drainAndPublish(report.MakeReport(), p.spiedReports)
 
