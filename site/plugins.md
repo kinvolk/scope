@@ -407,7 +407,31 @@ An example of a report containing few topologies is the following:
 }
 ```
 
-### Topology
+### Topologies
+Topologies can be of various types.
+Each topology consists of a list of nodes and other information about the topology.
+The available topologies are:
+
+- `Endpoint` nodes are (address, port) tuples on each host.
+- `Process` nodes are processes on each host.
+- `Container` nodes represent all Docker containers on hosts running probes.
+- `Pods` nodes represent all Kubernetes pods running on hosts running probes.
+- `Service` nodes represent all Kubernetes services running on hosts running probes.
+- `Deployment` nodes represent all Kubernetes deployments running on hosts running probes.
+- `ReplicaSet` nodes represent all Kubernetes ReplicaSets running on hosts running probes.
+- `ContainerImage` nodes represent all Docker container images on hosts running probes.
+- `Host` nodes are physical hosts that run probes.
+- `Overlay` nodes are active peers in any software-defined network that's overlaid on the infrastructure.
+
+The topology structure consists of the following attributes:
+
+- `nodes` - is the list of the nodes that compose the topology.
+- `controls` - contains the description of the controls that apply to the specific topology.
+- `metadata_templates` - contains the templates used to render data into the Scope UI.
+- `table_templates` - contains the templates used to render tables into the Scope UI.
+
+**Note**: These attribute are not required. But a topology with no `nodes` does not have any information to render, `metadata_templates`, as well as `table_templates`, are needed to know how to render the information carried by `nodes` in the Scope UI.
+
 ### Nodes
 ### Controls
 ### Metadata Templates
