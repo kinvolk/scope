@@ -57,6 +57,8 @@ var SpyDuration = prometheus.NewSummaryVec(
 	[]string{},
 )
 
+var AddConnectionCounters [2]int
+
 // NewReporter creates a new Reporter that invokes procspy.Connections to
 // generate a report.Report that contains every discovered (spied) connection
 // on the host machine, at the granularity of host and port. That information
@@ -139,6 +141,7 @@ func (r *Reporter) Report() (report.Report, error) {
 
 			seenTuples[tuple.key()] = tuple
 			r.addConnection(&rpt, tuple, "", extraNodeInfo, extraNodeInfo)
+			AddConnectionCounters[0] += 1
 		})
 	}
 
@@ -177,6 +180,7 @@ func (r *Reporter) Report() (report.Report, error) {
 				tuple.reverse()
 				toNodeInfo, fromNodeInfo = fromNodeInfo, toNodeInfo
 			}
+			AddConnectionCounters[1] += 1
 			r.addConnection(&rpt, tuple, namespaceID, fromNodeInfo, toNodeInfo)
 		}
 	}
