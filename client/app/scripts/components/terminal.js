@@ -76,7 +76,7 @@ function openNewWindow(url, bcr, minWidth = 200) {
     .map((k) => `${k}=${windowOptions[k]}`)
     .join(',');
 
-  window.open(url, '', windowOptionsString);
+  return window.open(url, '', windowOptionsString);
 }
 
 
@@ -265,7 +265,12 @@ class Terminal extends React.Component {
 
     const bcr = ReactDOM.findDOMNode(this).getBoundingClientRect();
     const minWidth = this.state.characterWidth * 80 + (8 * 2);
-    openNewWindow(`terminal.html#!/state/${paramString}`, bcr, minWidth);
+    const newWindow = openNewWindow(`terminal.html#!/state/${paramString}`, bcr, minWidth);
+    newWindow.addEventListener('load', () => {
+      newWindow.addEventListener('unload', () => {
+        this.props.dispatch(clickCloseTerminal(this.getPipeId(), true));
+      });
+    });
   }
 
   handleResize() {
