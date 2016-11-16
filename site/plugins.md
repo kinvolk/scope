@@ -17,6 +17,7 @@ The following topics are discussed:
  * [A Guide to Developing Plugins](#plugins-developing-guide)
   * [Setting up the Structure](#structure)
   * [Defining the Reporter Interface](#reporter-interface)
+  * [Report Data Structures](#report-data-structures)
 
 Any kind of metrics can be generated and inserted into Scope using custom plugins. Metrics generated through your plugin are displayed in the user interface alongside the standard set of metrics that are found in Weave Scope.
 
@@ -389,6 +390,36 @@ func (p *Plugin) Report(w http.ResponseWriter, r *http.Request) {
 }
 
 ```
+
+### <a id="report-data-structures"></a>Report Data structures
+A report can contain many types of information.
+If you go back to the [Reporter Interface](#reporter-interface) section, you see the top-level `Plugins` attribute.
+Along with that, a report may contain multiple topologies.
+An example of a report containing few topologies is the following:
+
+```json
+{
+  "Host": {},
+  "Container": {},
+  "Process": {},
+  ...,
+  "Plugins": [...,]
+}
+```
+
+### Topology
+### Nodes
+### Controls
+### Metadata Templates
+### Table Templates
+### Metric Templates
+
+### Metadata
+### Metrics
+
+### Reporters
+### Taggers
+### Timestamps and Time Window
 
 **See Also**
 
