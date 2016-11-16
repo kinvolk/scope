@@ -46,7 +46,9 @@ func (br *backgroundReader) getWalkedProcPid(buf *bytes.Buffer) (map[uint64]*Pro
 	br.mtx.Lock()
 	defer br.mtx.Unlock()
 
-	_, err := io.Copy(buf, br.latestBuf)
+	b, err := io.Copy(buf, br.latestBuf)
+
+	log.Infof("getWalkedProcPid(). Bytes copied = %d", b)
 
 	return br.latestSockets, err
 }
