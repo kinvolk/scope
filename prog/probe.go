@@ -7,7 +7,6 @@ import (
 	_ "net/http/pprof"
 	"net/url"
 	"os"
-	"runtime"
 	"strconv"
 	"time"
 
@@ -71,8 +70,6 @@ func check(flags map[string]string) {
 func probeMain(flags probeFlags, targets []appclient.Target) {
 	setLogLevel(flags.logLevel)
 	setLogFormatter(flags.logPrefix)
-
-	runtime.SetBlockProfileRate(1)
 
 	// Setup in memory metrics sink
 	inm := metrics.NewInmemSink(time.Minute, 2*time.Minute)
