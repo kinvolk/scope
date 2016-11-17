@@ -465,6 +465,29 @@ In particular a node may contain:
 
 ### Controls
 ### Metadata Templates
+Metadata Templates describe of a particular metadata.
+This description is used to extract metadata from a node and display it on Scope UI.
+
+```json
+"metadata_templates": {
+      "metadata-template-id": {
+        "id": "metadata-template-id",
+        "label": "Human-readable description",
+        "priority": 13.5,
+        "from": "latest"
+      },
+      "another-metadata-template-id": {...}
+}
+```
+
+- `metadata-template-identifier` and `id` identify a particular metadata template.
+- `label` contains the label that will be used by Scope UI.
+- `priority` is a floating point value used to decide the display ordering (lower values are displayed before higher ones).
+- `from` indicates where to look for the metadata. The possible values are:
+ - `latest`
+ - `sets`
+ - `counters`
+
 ### Table Templates
 ### Metric Templates
 
