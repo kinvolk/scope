@@ -122,6 +122,11 @@ func (br *backgroundReader) loop(walker process.Walker) {
 // Adjust rate limit for next walk and calculate when it should be started
 func scheduleNextWalk(rateLimitPeriod time.Duration, took time.Duration) (newRateLimitPeriod time.Duration, restInterval time.Duration) {
 	log.Debugf("background /proc reader: full pass took %s", took)
+	log.Infof(
+		"background /proc reader: full pass took %s (expected %s)",
+		took,
+		targetWalkTime,
+	)
 	if float64(took)/float64(targetWalkTime) > 1.5 {
 		log.Warnf(
 			"background /proc reader: full pass took %s: 50%% more than expected (%s)",
