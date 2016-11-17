@@ -489,6 +489,25 @@ This description is used to extract metadata from a node and display it on Scope
  - `counters`
 
 ### Table Templates
+Table Templates describe a table and how to identify which metadata templates belong to the table.
+
+```json
+"table_templates": {
+      "table-template-id": {
+        "id": "table-template-id",
+        "label": "Human-readable description",
+        "prefix": "table-id-"
+      },
+      "another-table-template-id": {...}
+}
+```
+
+- `table-template-identifier` and `id` identify a particular table template.
+- `label` contains the label that will be used by Scope UI.
+- `prefix` is used to identify which metadata templates belong to the table.
+
+If you want to display data in a table, you have to define a table template and prepend the table prefix to all the metadata templates that identifies the data you want to put in such table.
+
 ### Metric Templates
 
 ### Metadata
