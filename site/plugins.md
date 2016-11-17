@@ -433,6 +433,36 @@ The topology structure consists of the following attributes:
 **Note**: These attribute are not required. But a topology with no `nodes` does not have any information to render, `metadata_templates`, as well as `table_templates`, are needed to know how to render the information carried by `nodes` in the Scope UI.
 
 ### Nodes
+A Node contains information about a specific element of a topology.
+For example the Host topology will contain nodes describing all the hosts in it.
+The same is for containers and Container topology, pods and Pod topology and so on.
+Nodes are represented as follows:
+
+```json
+{
+  "Host": {
+    "nodes" : {
+      "hostID;<host>": {...}
+    }
+  },
+  "Container": {
+    "nodes" : {
+      "containerID;<container>": {...}
+    }
+  },
+  ...
+}
+```
+
+Nodes are stored in dictionary. The ID of nodes representing hosts or containers have the format `ID;<type>`, with type equal `host` or `container` accordingly.
+
+A node contains all the information about the represented object (e.g. host, container, pod, etc.).
+In particular a node may contain:
+
+- `latest` - the latest values to display.
+- `latestControls` - the latest available controls.
+- `metrics` - the collection of metrics to display in the UI.
+
 ### Controls
 ### Metadata Templates
 ### Table Templates
