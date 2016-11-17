@@ -43,6 +43,7 @@ type Reporter struct {
 	ebpfTracker     eventTracker
 	natMapper       natMapper
 	reverseResolver *reverseResolver
+	reportCounter   int
 }
 
 // SpyDuration is an exported prometheus metric
@@ -169,27 +170,30 @@ func (r *Reporter) Report() (report.Report, error) {
 
 	// eBPF
 	if r.conf.UseEbpfConn && !r.ebpfTracker.hasDied() {
-		r.ebpfTracker.walkConnections(func(e ebpfConnection) {
-			fromNodeInfo := map[string]string{
-				Procspied: "true",
-				EBPF:      "true",
-			}
-			toNodeInfo := map[string]string{
-				Procspied: "true",
-				EBPF:      "true",
-			}
-			if e.pid > 0 {
-				fromNodeInfo[process.PID] = strconv.Itoa(e.pid)
-				fromNodeInfo[report.HostNodeID] = hostNodeID
-			}
+		if r.reportCounter%3 == 0 {
+			r.ebpfTracker.walkConnections(func(e ebpfConnection) {
+				fromNodeInfo := map[string]string{
+					Procspied: "true",
+					EBPF:      "true",
+				}
+				toNodeInfo := map[string]string{
+					Procspied: "true",
+					EBPF:      "true",
+				}
+				if e.pid > 0 {
+					fromNodeInfo[process.PID] = strconv.Itoa(e.pid)
+					fromNodeInfo[report.HostNodeID] = hostNodeID
+				}
 
-			if e.incoming {
-				r.addConnection(&rpt, reverse(e.tuple), e.networkNamespace, toNodeInfo, fromNodeInfo)
-			} else {
-				r.addConnection(&rpt, e.tuple, e.networkNamespace, fromNodeInfo, toNodeInfo)
-			}
+				if e.incoming {
+					r.addConnection(&rpt, reverse(e.tuple), e.networkNamespace, toNodeInfo, fromNodeInfo)
+				} else {
+					r.addConnection(&rpt, e.tuple, e.networkNamespace, fromNodeInfo, toNodeInfo)
+				}
 
-		})
+			})
+		}
+		r.reportCounter++
 	}
 
 	r.natMapper.applyNAT(rpt, r.conf.HostID)
