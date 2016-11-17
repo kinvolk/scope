@@ -509,6 +509,28 @@ Table Templates describe a table and how to identify which metadata templates be
 If you want to display data in a table, you have to define a table template and prepend the table prefix to all the metadata templates that identifies the data you want to put in such table.
 
 ### Metric Templates
+Metric Templates describe a particular metric.
+The following is an example of metric template:
+
+```json
+"metric_templates": {
+      "metric-template-id": {
+        "id": "metric-id",
+        "label": "Human-readable description",
+        "format": "percent",
+        "priority": 1.6
+      },
+      "another-metric-template-id": {...}
+}
+```
+
+- `metric-template-id` and `id` identify a particular metric template.
+- `label` contains the label that will be used by Scope UI.
+- `format` describes who the metrics is formatted.
+ - `percent` the metric value is a percentage.
+ - `filesize` the metric value is a file size (e.g. memory usage).
+ - `integer` the metric value is an integer.
+- `priority` is a floating point value used to decide the display ordering (lower values are displayed before higher ones).
 
 ### Metadata
 ### Metrics
