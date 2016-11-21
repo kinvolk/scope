@@ -464,6 +464,30 @@ In particular a node may contain:
 - `metrics` - the collection of metrics to display in the UI.
 
 ### Controls
+Controls describe interfaces that expose actions that the user can perform on different objects (e.g. host, container, etc.).
+Controls are an element of nodes. In this way, each control in a node is attached to it and performs an action on the object described by the node itself. Below is an example of how controls are represented in the JSON report.
+
+```json
+"latestControls": {
+	"switchToIOWait": {
+		"timestamp": "2016-11-17T08:53:03.171438309Z",
+		"value": {
+			"dead": false
+		}
+	},
+	"switchToIdle": {
+		"timestamp": "2016-11-17T08:53:03.171438309Z",
+		"value": {
+			"dead": true
+		}
+	}
+}
+``` 
+
+- `timestamp` is the timestamp of when the control was exposed.
+- `value` is an object containing the control value. At the moment, only the state is available.
+ - `Dead` is a boolean to know the state (active, dead) of a control. It is useful to show controls only when they are in a usable state.
+
 ### Metadata Templates
 Metadata Templates describe of a particular metadata.
 This description is used to extract metadata from a node and display it on Scope UI.
