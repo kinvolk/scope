@@ -614,12 +614,13 @@ The following is an example of a report with a metric and a its metric template:
 - `min` is the minimum value possible.
 - `max` is the maximum value possible.
 
-### Reporters
-### Taggers
-### Timestamps and Time Window
+### Time Window
+A report may have an attribute called `Window`.
+This is the time window, expressed as duration, within which the data contained in the report are considered valid.
+The default window is 15 seconds.
+You may change the window value using the option `-app.window <SECONDS>` when launching scope.
+However, using values less than 15 seconds increases the change of information not be correctly displayed.
 
 **See Also**
 
   * [Building Scope](/site/building.md)
-
-
