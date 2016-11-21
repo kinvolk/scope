@@ -557,6 +557,29 @@ The following is an example of metric template:
 - `priority` is a floating point value used to decide the display ordering (lower values are displayed before higher ones).
 
 ### Metadata
+All metadata entries are placed within nodes in the section named `latest`.
+This section contains the latest values to display and consists of `timestamp` and `value`.
+Scope uses `metadata_templates` to know how to display such data.
+To pair metadata with its template, it is necessary to use the `metadata-template-id` as a key to identify that particular piece of data. Example:
+
+```json
+"metadata-templates": {
+      "metadata-templates-id": {
+        "id": "metadata-templates-id",
+        "label": "Human-readable description",
+        "priority": 1.6,
+        "from": "latest"
+      }
+}
+
+"latest": {
+	"metadata-templates-id": {
+		"timestamp": "2016-11-17T08:53:02.189193735Z",
+		"value": "-"
+	}
+}
+```
+
 ### Metrics
 
 ### Reporters
