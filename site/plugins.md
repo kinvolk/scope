@@ -16,7 +16,7 @@ The following topics are discussed:
      * [Naming Nodes](#naming-nodes)
  * [A Guide to Developing Plugins](#plugins-developing-guide)
   * [Setting up the Structure](#structure)
-  * [Defining the Reporter Interface](#reporter-interface)
+  * [Defining the Reporter Interface](#defining-reporter-interface)
   * [Report Data Structures](#report-data-structures)
 
 Any kind of metrics can be generated and inserted into Scope using custom plugins. Metrics generated through your plugin are displayed in the user interface alongside the standard set of metrics that are found in Weave Scope.
@@ -335,7 +335,7 @@ func main() {
 
 ```
 
-### <a id="reporter-interface"></a>Defining the Reporter Interface
+### <a id="defining-reporter-interface"></a>Defining the Reporter Interface
 
 As stated in the [How Plugins Communicate with Scope](#plugins-internals) section, the reporter interface is mandatory.
 Implementing the reporter interface means handling `GET /report` requests.
