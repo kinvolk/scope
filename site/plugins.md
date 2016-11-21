@@ -581,6 +581,38 @@ To pair metadata with its template, it is necessary to use the `metadata-templat
 ```
 
 ### Metrics
+Metrics are a particular kind of data that can be plotted on the UI as a graph.
+Scope uses the `metric_templates` to know how to display such data. To pair a metric with its template, it is necessary to use the `metric-template-id` as key to identify that particular metric.
+Metrics are suitable for information such as CPU and memory usage, HTTP requests rate, I/O operations, etc.
+The following is an example of a report with a metric and a its metric template:
+
+```json
+"metric_templates": {
+      "metric-template-id": {
+        "id": "metric-id",
+        "label": "Human-readable description",
+        "format": "percent",
+        "priority": 1.6
+      },
+}
+
+"metrics": {
+	"metadata-template-id": {
+		"samples": [
+			{
+				"date": "2016-11-17T08:53:03.171424664Z",
+				"value": 98.24
+			}
+		],
+		"min": 0,
+		"max": 100
+	}
+}
+```
+
+- `samples` is the list of the samples for this report.
+- `min` is the minimum value possible.
+- `max` is the maximum value possible.
 
 ### Reporters
 ### Taggers
