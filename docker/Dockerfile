@@ -1,8 +1,10 @@
-FROM zlim/bcc
+FROM alpine:edge
 MAINTAINER Weaveworks Inc <help@weave.works>
 LABEL works.weave.role=system
 WORKDIR /home/weave
-RUN apt-get update -y && apt-get install -y runit bash conntrack iproute2 util-linux libbcc libpcap0.8 localepurge && printf "#NEEDSCONFIGFIRST\nMANDELETE\nSHOWFREEDSPACE\nC\n" > /etc/locale.nopurge && dpkg-reconfigure localepurge && apt-get autoremove -y python curl localepurge && rm -rf /var/lib/dpkg/info/* && rm -rf /var/lib/apt/lists/*
+RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/community" >>/etc/apk/repositories && \
+	apk add --update bash runit conntrack-tools iproute2 util-linux curl build-base linux-headers libelf && \
+	rm -rf /var/cache/apk/*
 ADD ./docker.tgz /
 ADD ./demo.json /
 ADD ./weave /usr/bin/
