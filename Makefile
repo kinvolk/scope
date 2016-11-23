@@ -45,7 +45,9 @@ $(SCOPE_EXPORT): $(SCOPE_EXE) $(DOCKER_DISTRIB) docker/weave $(RUNSVINIT) docker
 	cp $(SCOPE_EXE) $(RUNSVINIT) docker/
 	cp $(DOCKER_DISTRIB) docker/docker.tgz
 	$(SUDO) docker build -t $(SCOPE_IMAGE) docker/
-	$(SUDO) docker tag $(SCOPE_IMAGE) $(SCOPE_IMAGE):$(IMAGE_TAG)
+	ID=$(shell $(SUDO) docker run -d --entrypoint /bin/bash $(SCOPE_IMAGE):latest); \
+		$(SUDO) docker export $$ID | $(SUDO) docker import --change "WORKDIR /home/weave" --change "ENTRYPOINT /home/weave/entrypoint.sh" --change "EXPOSE 4040" - $(SCOPE_IMAGE):$(IMAGE_TAG)
+	$(SUDO) docker tag $(SCOPE_IMAGE):$(IMAGE_TAG) $(SCOPE_IMAGE):latest
 	$(SUDO) docker save $(SCOPE_IMAGE):latest > $@
 
 $(RUNSVINIT): vendor/runsvinit/*.go
