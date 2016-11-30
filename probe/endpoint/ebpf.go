@@ -2,270 +2,43 @@ package endpoint
 
 import (
 	"encoding/binary"
-	"fmt"
 	"net"
 	"strconv"
 	"sync"
 	"unsafe"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/iovisor/gobpf"
+	bpflib "github.com/kinvolk/go-ebpf-kprobe-example/bpf"
 )
 
 /*
-#cgo CFLAGS: -I/usr/include/bcc/compat
-#cgo LDFLAGS: -lbcc
-#include <bcc/bpf_common.h>
-#include <bcc/libbpf.h>
-#include <bcc/perf_reader.h>
-#include <stdio.h>
+#cgo CFLAGS: -Wall -Wno-unused-variable
+#cgo LDFLAGS: -lelf
 
-void *bpf_open_perf_buffer(perf_reader_raw_cb raw_cb, void *cb_cookie, int pid, int cpu);
+#include <stdlib.h>
+#include <stdint.h>
+#include <sys/ioctl.h>
+#include <linux/perf_event.h>
+#include <poll.h>
+#include <errno.h>
+#include <linux/bpf.h>
 
-extern void tcpEventCb();
-
-#define TASK_COMM_LEN 16 // linux/sched.h
-
-struct tcp_event_t {
-        char ev_type[12];
-        uint32_t pid;
-        char comm[TASK_COMM_LEN];
-        uint32_t saddr;
-        uint32_t daddr;
-        uint16_t sport;
-        uint16_t dport;
-        uint32_t netns;
-};
-
-*/
-import "C"
-
-const source string = `
-#include <uapi/linux/ptrace.h>
-#include <net/sock.h>
-#include <net/inet_sock.h>
-#include <net/net_namespace.h>
-#include <bcc/proto.h>
-
-#define TCP_EVENT_TYPE_CONNECT 1
-#define TCP_EVENT_TYPE_ACCEPT  2
-#define TCP_EVENT_TYPE_CLOSE   3
+#define TASK_COMM_LEN 16
 
 struct tcp_event_t {
 	char ev_type[12];
-	u32 pid;
+	__u32 pid;
 	char comm[TASK_COMM_LEN];
-	u32 saddr;
-	u32 daddr;
-	u16 sport;
-	u16 dport;
-	u32 netns;
+	__u32 saddr;
+	__u32 daddr;
+	__u16 sport;
+	__u16 dport;
+	__u32 netns;
 };
-
-BPF_PERF_OUTPUT(tcp_event);
-BPF_HASH(connectsock, u64, struct sock *);
-BPF_HASH(closesock, u64, struct sock *);
-
-int kprobe__tcp_v4_connect(struct pt_regs *ctx, struct sock *sk)
-{
-	u64 pid = bpf_get_current_pid_tgid();
-
-	// stash the sock ptr for lookup on return
-	connectsock.update(&pid, &sk);
-
-	return 0;
-};
-
-int kretprobe__tcp_v4_connect(struct pt_regs *ctx)
-{
-	int ret = PT_REGS_RC(ctx);
-	u64 pid = bpf_get_current_pid_tgid();
-
-	struct sock **skpp;
-	skpp = connectsock.lookup(&pid);
-	if (skpp == 0) {
-		return 0;	// missed entry
-	}
-
-	if (ret != 0) {
-		// failed to send SYNC packet, may not have populated
-		// socket __sk_common.{skc_rcv_saddr, ...}
-		connectsock.delete(&pid);
-		return 0;
-	}
-
-
-	// pull in details
-	struct sock *skp = *skpp;
-	struct ns_common *ns;
-	u32 saddr = 0, daddr = 0, net_ns_inum = 0;
-	u16 sport = 0, dport = 0;
-	bpf_probe_read(&sport, sizeof(sport), &((struct inet_sock *)skp)->inet_sport);
-	bpf_probe_read(&saddr, sizeof(saddr), &skp->__sk_common.skc_rcv_saddr);
-	bpf_probe_read(&daddr, sizeof(daddr), &skp->__sk_common.skc_daddr);
-	bpf_probe_read(&dport, sizeof(dport), &skp->__sk_common.skc_dport);
-
-// Get network namespace id, if kernel supports it
-#ifdef CONFIG_NET_NS
-	possible_net_t skc_net;
-	bpf_probe_read(&skc_net, sizeof(skc_net), &skp->__sk_common.skc_net);
-	bpf_probe_read(&net_ns_inum, sizeof(net_ns_inum), &skc_net.net->ns.inum);
-#else
-	net_ns_inum = 0;
-#endif
-
-	// output
-	struct tcp_event_t evt = {
-		.ev_type = "connect",
-		.pid = pid >> 32,
-		.saddr = saddr,
-		.daddr = daddr,
-		.sport = ntohs(sport),
-		.dport = ntohs(dport),
-		.netns = net_ns_inum,
-	};
-
-	bpf_get_current_comm(&evt.comm, sizeof(evt.comm));
-
-	// do not send event if IP address is 0.0.0.0 or port is 0
-	if (evt.saddr != 0 && evt.daddr != 0 && evt.sport != 0 && evt.dport != 0) {
-		tcp_event.perf_submit(ctx, &evt, sizeof(evt));
-	}
-
-	connectsock.delete(&pid);
-
-	return 0;
-}
-
-int kprobe__tcp_close(struct pt_regs *ctx, struct sock *sk)
-{
-	u64 pid = bpf_get_current_pid_tgid();
-
-	// stash the sock ptr for lookup on return
-	closesock.update(&pid, &sk);
-
-	return 0;
-};
-
-int kretprobe__tcp_close(struct pt_regs *ctx)
-{
-	u64 pid = bpf_get_current_pid_tgid();
-
-	struct sock **skpp;
-	skpp = closesock.lookup(&pid);
-	if (skpp == 0) {
-		return 0;	// missed entry
-	}
-
-	closesock.delete(&pid);
-
-	// pull in details
-	struct sock *skp = *skpp;
-	u16 family = 0;
-	bpf_probe_read(&family, sizeof(family), &skp->__sk_common.skc_family);
-	if (family != AF_INET) {
-		return 0;
-	}
-
-	u32 saddr = 0, daddr = 0, net_ns_inum = 0;
-	u16 sport = 0, dport = 0;
-	bpf_probe_read(&saddr, sizeof(saddr), &skp->__sk_common.skc_rcv_saddr);
-	bpf_probe_read(&daddr, sizeof(daddr), &skp->__sk_common.skc_daddr);
-	bpf_probe_read(&sport, sizeof(sport), &((struct inet_sock *)skp)->inet_sport);
-	bpf_probe_read(&dport, sizeof(dport), &skp->__sk_common.skc_dport);
-
-// Get network namespace id, if kernel supports it
-#ifdef CONFIG_NET_NS
-	possible_net_t skc_net;
-	bpf_probe_read(&skc_net, sizeof(skc_net), &skp->__sk_common.skc_net);
-	bpf_probe_read(&net_ns_inum, sizeof(net_ns_inum), &skc_net.net->ns.inum);
-#else
-	net_ns_inum = 0;
-#endif
-
-	// output
-	struct tcp_event_t evt = {
-		.ev_type = "close",
-		.pid = pid >> 32,
-		.saddr = saddr,
-		.daddr = daddr,
-		.sport = ntohs(sport),
-		.dport = ntohs(dport),
-		.netns = net_ns_inum,
-	};
-
-	bpf_get_current_comm(&evt.comm, sizeof(evt.comm));
-
-	// do not send event if IP address is 0.0.0.0 or port is 0
-	if (evt.saddr != 0 && evt.daddr != 0 && evt.sport != 0 && evt.dport != 0) {
-		tcp_event.perf_submit(ctx, &evt, sizeof(evt));
-	}
-
-	return 0;
-}
-
-int kretprobe__inet_csk_accept(struct pt_regs *ctx)
-{
-	struct sock *newsk = (struct sock *)PT_REGS_RC(ctx);
-	u64 pid = bpf_get_current_pid_tgid();
-
-	if (newsk == NULL)
-		return 0;
-
-	// check this is TCP
-	u8 protocol = 0;
-	// workaround for reading the sk_protocol bitfield:
-	bpf_probe_read(&protocol, 1, (void *)((long)&newsk->sk_wmem_queued) - 3);
-	if (protocol != IPPROTO_TCP)
-		return 0;
-
-	// pull in details
-	u16 family = 0, lport = 0, dport = 0;
-	u32 net_ns_inum = 0;
-	bpf_probe_read(&family, sizeof(family), &newsk->__sk_common.skc_family);
-	bpf_probe_read(&lport, sizeof(lport), &newsk->__sk_common.skc_num);
-	bpf_probe_read(&dport, sizeof(dport), &newsk->__sk_common.skc_dport);
-
-// Get network namespace id, if kernel supports it
-#ifdef CONFIG_NET_NS
-	possible_net_t skc_net;
-	bpf_probe_read(&skc_net, sizeof(skc_net), &newsk->__sk_common.skc_net);
-	bpf_probe_read(&net_ns_inum, sizeof(net_ns_inum), &skc_net.net->ns.inum);
-#else
-	net_ns_inum = 0;
-#endif
-
-	if (family == AF_INET) {
-		struct tcp_event_t evt = {.ev_type = "accept", .netns = net_ns_inum};
-		evt.pid = pid >> 32;
-		bpf_probe_read(&evt.saddr, sizeof(u32),
-			&newsk->__sk_common.skc_rcv_saddr);
-		bpf_probe_read(&evt.daddr, sizeof(u32),
-			&newsk->__sk_common.skc_daddr);
-			evt.sport = lport;
-		evt.dport = ntohs(dport);
-		bpf_get_current_comm(&evt.comm, sizeof(evt.comm));
-		tcp_event.perf_submit(ctx, &evt, sizeof(evt));
-	}
-	// else drop
-
-	return 0;
-}
-`
+*/
+import "C"
 
 var byteOrder binary.ByteOrder
-
-func init() {
-	var i int32 = 0x01020304
-	u := unsafe.Pointer(&i)
-	pb := (*byte)(u)
-	b := *pb
-	if b == 0x04 {
-		byteOrder = binary.LittleEndian
-	} else {
-		byteOrder = binary.BigEndian
-	}
-}
 
 // An ebpfConnection represents a TCP connection
 type ebpfConnection struct {
@@ -301,7 +74,8 @@ func (n nilTracker) isInitialized() bool                                     { r
 // Closed connections are kept in the `closedConnections` slice for one iteration of `walkConnections`.
 type EbpfTracker struct {
 	sync.Mutex
-	readers     []*C.struct_perf_reader
+	//readers     []*C.struct_perf_reader
+	reader      *bpflib.BpfPerfEvent
 	initialized bool
 	dead        bool
 
@@ -313,113 +87,20 @@ func newEbpfTracker(useEbpfConn bool) eventTracker {
 	if !useEbpfConn {
 		return &nilTracker{}
 	}
-	m := bpf.NewBpfModule(source, []string{})
 
-	connectKprobe, err := m.LoadKprobe("kprobe__tcp_v4_connect")
+	b, err := bpflib.NewBpfPerfEvent("/var/run/scope/ebpf/trace_output_kern.o")
 	if err != nil {
 		return &nilTracker{}
 	}
 
-	err = m.AttachKprobe("tcp_v4_connect", connectKprobe)
-	if err != nil {
-		return &nilTracker{}
-	}
-
-	connectKretprobe, err := m.LoadKprobe("kretprobe__tcp_v4_connect")
-	if err != nil {
-		return &nilTracker{}
-	}
-
-	err = m.AttachKretprobe("tcp_v4_connect", connectKretprobe)
-	if err != nil {
-		return &nilTracker{}
-	}
-
-	closeKprobe, err := m.LoadKprobe("kprobe__tcp_close")
-	if err != nil {
-		return &nilTracker{}
-	}
-
-	err = m.AttachKprobe("tcp_close", closeKprobe)
-	if err != nil {
-		return &nilTracker{}
-	}
-
-	closeKretprobe, err := m.LoadKprobe("kretprobe__tcp_close")
-	if err != nil {
-		return &nilTracker{}
-	}
-
-	err = m.AttachKretprobe("tcp_close", closeKretprobe)
-	if err != nil {
-		return &nilTracker{}
-	}
-
-	acceptKretprobe, err := m.LoadKprobe("kretprobe__inet_csk_accept")
-	if err != nil {
-		return &nilTracker{}
-	}
-
-	err = m.AttachKretprobe("inet_csk_accept", acceptKretprobe)
-	if err != nil {
-		return &nilTracker{}
-	}
-
-	t := bpf.NewBpfTable(0, m)
-	readers, err := initPerfMap(t)
-	if err != nil {
-		return &nilTracker{}
-	}
 	tracker := &EbpfTracker{
 		openConnections: map[string]ebpfConnection{},
-		readers:         readers,
+		reader:         b,
 	}
 	go tracker.run()
 
 	ebpfTracker = tracker
 	return tracker
-}
-
-func initPerfMap(table *bpf.BpfTable) ([]*C.struct_perf_reader, error) {
-	fd := table.Config()["fd"].(int)
-	keySize := table.Config()["key_size"].(uint64)
-	leafSize := table.Config()["leaf_size"].(uint64)
-
-	if keySize != 4 || leafSize != 4 {
-		return nil, fmt.Errorf("wrong size")
-	}
-
-	key := make([]byte, keySize)
-	leaf := make([]byte, leafSize)
-	keyP := unsafe.Pointer(&key[0])
-	leafP := unsafe.Pointer(&leaf[0])
-
-	readers := []*C.struct_perf_reader{}
-
-	cpu := 0
-	res := 0
-	for res == 0 {
-		reader := C.bpf_open_perf_buffer((*[0]byte)(C.tcpEventCb), nil, -1, C.int(cpu))
-		if reader == nil {
-			return nil, fmt.Errorf("failed to get reader")
-		}
-
-		perfFd := C.perf_reader_fd(reader)
-
-		readers = append(readers, (*C.struct_perf_reader)(reader))
-
-		// copy perfFd into leaf, respecting the host endienness
-		byteOrder.PutUint32(leaf, uint32(perfFd))
-
-		r, err := C.bpf_update_elem(C.int(fd), keyP, leafP, 0)
-		if r != 0 {
-			return nil, fmt.Errorf("unable to initialize perf map: %v", err)
-		}
-
-		res = int(C.bpf_get_next_key(C.int(fd), keyP, keyP))
-		cpu++
-	}
-	return readers, nil
 }
 
 func (t *EbpfTracker) handleConnection(eventType string, tuple fourTuple, pid int, networkNamespace string) {
@@ -457,13 +138,7 @@ func handleConnection(eventType string, tuple fourTuple, pid int, networkNamespa
 	ebpfTracker.handleConnection(eventType, tuple, pid, networkNamespace)
 }
 
-func (t *EbpfTracker) run() {
-	for {
-		C.perf_reader_poll(C.int(len(t.readers)), &t.readers[0], -1)
-	}
-}
-
-func tcpEventCallback(cpu int, tcpEvent *C.struct_tcp_event_t) {
+func tcpEventCallback(tcpEvent *C.struct_tcp_event_t) {
 	typ := C.GoString(&tcpEvent.ev_type[0])
 	pid := tcpEvent.pid & 0xffffffff
 
@@ -485,21 +160,15 @@ func tcpEventCallback(cpu int, tcpEvent *C.struct_tcp_event_t) {
 }
 
 //export tcpEventCb
-func tcpEventCb(cbCookie unsafe.Pointer, raw unsafe.Pointer, rawSize C.int) {
+func tcpEventCb(data []byte) {
 	// See src/cc/perf_reader.c:parse_sw()
 	// struct {
 	//     uint32_t size;
 	//     char data[0];
 	// };
 
-	var tcpEvent C.struct_tcp_event_t
-
-	if int(rawSize) != 4+int(unsafe.Sizeof(tcpEvent)) {
-		fmt.Printf("invalid perf event: rawSize=%d != %d + %d\n", rawSize, 4, unsafe.Sizeof(tcpEvent))
-		return
-	}
-
-	tcpEventCallback(0, (*C.struct_tcp_event_t)(raw))
+	tcpEvent := (*C.struct_tcp_event_t)(unsafe.Pointer(&data[0]))
+	tcpEventCallback(tcpEvent)
 }
 
 // walkConnections calls f with all open connections and connections that have come and gone
@@ -515,6 +184,10 @@ func (t *EbpfTracker) walkConnections(f func(ebpfConnection)) {
 		f(connection)
 	}
 	t.closedConnections = t.closedConnections[:0]
+}
+
+func (t *EbpfTracker) run() {
+	t.reader.Poll(tcpEventCb)
 }
 
 func (t *EbpfTracker) hasDied() bool {
