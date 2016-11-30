@@ -145,6 +145,7 @@ launch_command() {
             -v /usr/src:/usr/src \
             -v /lib/modules:/lib/modules \
             -v /sys/kernel/debug:/sys/kernel/debug \
+            -v /var/run/scope/ebpf/:/var/run/scope/ebpf/ \
             -e CHECKPOINT_DISABLE \
             $WEAVESCOPE_DOCKER_ARGS $SCOPE_IMAGE --probe.docker=true
 }
