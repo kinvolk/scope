@@ -1,44 +1,34 @@
 package endpoint
 
 import (
+	"bytes"
 	"encoding/binary"
 	"net"
-	"strconv"
 	"sync"
 	"unsafe"
 
 	log "github.com/Sirupsen/logrus"
-	bpflib "github.com/kinvolk/go-ebpf-kprobe-example/bpf"
+	bpflib "github.com/kinvolk/gobpf-elf-loader/bpf"
 )
 
-/*
-#cgo CFLAGS: -Wall -Wno-unused-variable
-#cgo LDFLAGS: -lelf
-
-#include <stdlib.h>
-#include <stdint.h>
-#include <sys/ioctl.h>
-#include <linux/perf_event.h>
-#include <poll.h>
-#include <errno.h>
-#include <linux/bpf.h>
-
-#define TASK_COMM_LEN 16
-
-struct tcp_event_t {
-	char ev_type[12];
-	__u32 pid;
-	char comm[TASK_COMM_LEN];
-	__u32 saddr;
-	__u32 daddr;
-	__u16 sport;
-	__u16 dport;
-	__u32 netns;
-};
-*/
 import "C"
 
 var byteOrder binary.ByteOrder
+
+type tcpEvent struct {
+	// Timestamp must be the first field, the sorting depends on it
+	Timestamp uint64
+
+	Cpu   uint64
+	Type  uint32
+	Pid   uint32
+	Comm  [16]byte
+	SAddr uint32
+	DAddr uint32
+	SPort uint16
+	DPort uint16
+	NetNS uint32
+}
 
 // An ebpfConnection represents a TCP connection
 type ebpfConnection struct {
@@ -74,8 +64,7 @@ func (n nilTracker) isInitialized() bool                                     { r
 // Closed connections are kept in the `closedConnections` slice for one iteration of `walkConnections`.
 type EbpfTracker struct {
 	sync.Mutex
-	//readers     []*C.struct_perf_reader
-	reader      *bpflib.BpfPerfEvent
+	reader      *bpflib.BPFKProbePerf
 	initialized bool
 	dead        bool
 
@@ -84,18 +73,29 @@ type EbpfTracker struct {
 }
 
 func newEbpfTracker(useEbpfConn bool) eventTracker {
+	var i int32 = 0x01020304
+	u := unsafe.Pointer(&i)
+	pb := (*byte)(u)
+	b := *pb
+	if b == 0x04 {
+		byteOrder = binary.LittleEndian
+	} else {
+		byteOrder = binary.BigEndian
+	}
+
 	if !useEbpfConn {
 		return &nilTracker{}
 	}
 
-	b, err := bpflib.NewBpfPerfEvent("/var/run/scope/ebpf/trace_output_kern.o")
+	bpfPerfEvent := bpflib.NewBpfPerfEvent("/var/run/scope/ebpf/ebpf.o")
+	err := bpfPerfEvent.Load()
 	if err != nil {
 		return &nilTracker{}
 	}
 
 	tracker := &EbpfTracker{
 		openConnections: map[string]ebpfConnection{},
-		reader:         b,
+		reader:          bpfPerfEvent,
 	}
 	go tracker.run()
 
@@ -134,41 +134,27 @@ func (t *EbpfTracker) handleConnection(eventType string, tuple fourTuple, pid in
 	}
 }
 
-func handleConnection(eventType string, tuple fourTuple, pid int, networkNamespace string) {
-	ebpfTracker.handleConnection(eventType, tuple, pid, networkNamespace)
-}
-
-func tcpEventCallback(tcpEvent *C.struct_tcp_event_t) {
-	typ := C.GoString(&tcpEvent.ev_type[0])
-	pid := tcpEvent.pid & 0xffffffff
+func tcpEventCallback(event tcpEvent) {
+	typ := EventType(event.Type)
+	pid := event.Pid & 0xffffffff
 
 	saddrbuf := make([]byte, 4)
 	daddrbuf := make([]byte, 4)
 
-	binary.LittleEndian.PutUint32(saddrbuf, uint32(tcpEvent.saddr))
-	binary.LittleEndian.PutUint32(daddrbuf, uint32(tcpEvent.daddr))
+	binary.LittleEndian.PutUint32(saddrbuf, uint32(event.SAddr))
+	binary.LittleEndian.PutUint32(daddrbuf, uint32(event.DAddr))
 
 	sIP := net.IPv4(saddrbuf[0], saddrbuf[1], saddrbuf[2], saddrbuf[3])
 	dIP := net.IPv4(daddrbuf[0], daddrbuf[1], daddrbuf[2], daddrbuf[3])
 
-	sport := tcpEvent.sport
-	dport := tcpEvent.dport
-	netns := tcpEvent.netns
+	sport := event.SPort
+	dport := event.DPort
 
 	tuple := fourTuple{sIP.String(), dIP.String(), uint16(sport), uint16(dport)}
-	handleConnection(typ, tuple, int(pid), strconv.Itoa(int(netns)))
-}
 
-//export tcpEventCb
-func tcpEventCb(data []byte) {
-	// See src/cc/perf_reader.c:parse_sw()
-	// struct {
-	//     uint32_t size;
-	//     char data[0];
-	// };
-
-	tcpEvent := (*C.struct_tcp_event_t)(unsafe.Pointer(&data[0]))
-	tcpEventCallback(tcpEvent)
+	log.Infof("handleConnection(%s, [%s:%d --> %s:%d], pid=%d, netNS=%d, cpu=%d, ts=%d)",
+		typ.String(), tuple.fromAddr, tuple.fromPort, tuple.toAddr, tuple.toPort, pid, event.NetNS, event.Cpu, event.Timestamp)
+	ebpfTracker.handleConnection(typ.String(), tuple, int(pid), string(event.NetNS))
 }
 
 // walkConnections calls f with all open connections and connections that have come and gone
@@ -187,7 +173,22 @@ func (t *EbpfTracker) walkConnections(f func(ebpfConnection)) {
 }
 
 func (t *EbpfTracker) run() {
-	t.reader.Poll(tcpEventCb)
+	channel := make(chan []byte)
+
+	go func() {
+		var event tcpEvent
+		for {
+			data := <-channel
+			err := binary.Read(bytes.NewBuffer(data), byteOrder, &event)
+			if err != nil {
+				log.Errorf("failed to decode received data: %s\n", err)
+				continue
+			}
+			tcpEventCallback(event)
+		}
+	}()
+
+	t.reader.PollStart("tcp_event_v4", channel)
 }
 
 func (t *EbpfTracker) hasDied() bool {
