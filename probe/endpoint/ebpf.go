@@ -95,6 +95,7 @@ type EbpfTracker struct {
 }
 
 func newEbpfTracker(useEbpfConn bool) eventTracker {
+	log.Infof("newEbpfTracker")
 	var i int32 = 0x01020304
 	u := unsafe.Pointer(&i)
 	pb := (*byte)(u)
@@ -106,12 +107,14 @@ func newEbpfTracker(useEbpfConn bool) eventTracker {
 	}
 
 	if !useEbpfConn {
+		log.Infof("useEbpfConn is false")
 		return &nilTracker{}
 	}
 
 	bpfPerfEvent := bpflib.NewBpfPerfEvent("/var/run/scope/ebpf/ebpf.o")
 	err := bpfPerfEvent.Load()
 	if err != nil {
+		log.Errorf("newEbpfTracker: load err=%v", err)
 		return &nilTracker{}
 	}
 
@@ -195,6 +198,7 @@ func (t *EbpfTracker) walkConnections(f func(ebpfConnection)) {
 }
 
 func (t *EbpfTracker) run() {
+	log.Infof("EbpfTracker.run()")
 	channel := make(chan []byte)
 
 	go func() {
@@ -210,6 +214,7 @@ func (t *EbpfTracker) run() {
 		}
 	}()
 
+	log.Infof("EbpfTracker: t.reader.PollStart('tcp_event_v4'")
 	t.reader.PollStart("tcp_event_v4", channel)
 }
 
