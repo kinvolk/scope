@@ -970,10 +970,10 @@
 			"branch": "master"
 		},
 		{
-			"importpath": "github.com/kinvolk/go-ebpf-kprobe-example/bpf",
-			"repository": "https://github.com/kinvolk/go-ebpf-kprobe-example",
+			"importpath": "github.com/kinvolk/gobpf-elf-loader/bpf",
+			"repository": "https://github.com/kinvolk/gobpf-elf-loader",
 			"vcs": "git",
-			"revision": "3dc63d9d42c16d42321cdd38b23904698c2ca403",
+			"revision": "ab0a324d990709a732e56fe11af8daa9fb0ae1f8",
 			"branch": "master",
 			"path": "/bpf",
 			"notests": true
