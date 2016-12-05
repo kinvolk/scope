@@ -3,7 +3,7 @@ ENV GOPATH /go
 ENV PATH /go/bin:/usr/lib/go-1.7/bin:/usr/bin:/bin:/usr/sbin:/sbin
 RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/community" >>/etc/apk/repositories && \
 	apk add --update bash runit conntrack-tools iproute2 util-linux curl build-base linux-headers \
-	libelf libelf-dev libpcap-dev file git py-requests go && \
+	libpcap-dev file git py-requests go && \
 	rm -rf /var/cache/apk/*
 RUN go clean -i net && \
 	go install -tags netgo std
