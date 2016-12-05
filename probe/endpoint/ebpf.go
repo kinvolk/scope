@@ -15,6 +15,28 @@ import "C"
 
 var byteOrder binary.ByteOrder
 
+type EventType uint32
+
+const (
+	_ EventType = iota
+	EventConnect
+	EventAccept
+	EventClose
+)
+
+func (e EventType) String() string {
+	switch e {
+	case EventConnect:
+		return "connect"
+	case EventAccept:
+		return "accept"
+	case EventClose:
+		return "close"
+	default:
+		return "unknown"
+	}
+}
+
 type tcpEvent struct {
 	// Timestamp must be the first field, the sorting depends on it
 	Timestamp uint64
