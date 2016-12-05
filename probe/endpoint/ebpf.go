@@ -232,3 +232,7 @@ func (t *EbpfTracker) initialize() {
 func (t *EbpfTracker) isInitialized() bool {
 	return t.initialized
 }
+
+func (t *EbpfTracker) stop() {
+	t.reader.PollStop("tcp_event_v4")
+}
