@@ -1,14 +1,13 @@
-FROM alpine:edge
+FROM ubuntu:yakkety
 ENV GOPATH /go
 ENV PATH /go/bin:/usr/lib/go-1.7/bin:/usr/bin:/bin:/usr/sbin:/sbin
-RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/community" >>/etc/apk/repositories && \
-	apk add --update bash runit conntrack-tools iproute2 util-linux curl build-base linux-headers \
-	libelf libelf-dev libpcap-dev file git py-requests go && \
-	rm -rf /var/cache/apk/*
+RUN echo "deb [trusted=yes] http://52.8.15.63/apt/xenial xenial-nightly main" > /etc/apt/sources.list.d/iovisor.list
+RUN apt-get update && \
+       apt-get install -y libpcap-dev python-requests time file shellcheck golang-1.7 git && \
+       rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 RUN go clean -i net && \
-	go install -tags netgo std
-# TODO fix: -race does not work with alpine see https://github.com/golang/go/issues/14481
-#	go install -race -tags netgo std
+	go install -tags netgo std && \
+	go install -race -tags netgo std
 RUN go get -tags netgo \
 		github.com/fzipp/gocyclo \
 		github.com/golang/lint/golint \
