@@ -38,6 +38,28 @@ func newBackgroundReader(walker process.Walker) *backgroundReader {
 	return br
 }
 
+func newForegroundReader(walker process.Walker) *backgroundReader {
+	br := &backgroundReader{
+		stopc:         make(chan struct{}),
+		latestSockets: map[uint64]*Proc{},
+	}
+	var (
+		walkc   = make(chan walkResult)
+		ticker  = time.NewTicker(time.Millisecond) // fire every millisecond
+		pWalker = newPidWalker(walker, ticker.C, fdBlockSize)
+	)
+
+	go performWalk(pWalker, walkc)
+
+	result := <-walkc
+	br.mtx.Lock()
+	br.latestBuf = result.buf
+	br.latestSockets = result.sockets
+	br.mtx.Unlock()
+
+	return br
+}
+
 func (br *backgroundReader) stop() {
 	close(br.stopc)
 }
@@ -46,7 +68,10 @@ func (br *backgroundReader) getWalkedProcPid(buf *bytes.Buffer) (map[uint64]*Pro
 	br.mtx.Lock()
 	defer br.mtx.Unlock()
 
-	_, err := io.Copy(buf, br.latestBuf)
+	// Don't access latestBuf directly but create a reader. In this way,
+	// the buffer will not be empty in the next call of getWalkedProcPid
+	// and it can be copied again.
+	_, err := io.Copy(buf, bytes.NewReader(br.latestBuf.Bytes()))
 
 	return br.latestSockets, err
 }
