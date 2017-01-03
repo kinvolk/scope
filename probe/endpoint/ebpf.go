@@ -121,6 +121,7 @@ func newEbpfTracker(useEbpfConn bool) eventTracker {
 		log.Infof("cannot find BPF object file: %v", err)
 		return &nilTracker{}
 	}
+	log.Infof("found BPF object file: %s", bpfObjectFile)
 
 	bpfModule := bpflib.NewModule(bpfObjectFile)
 	if bpfModule == nil {
