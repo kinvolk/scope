@@ -9,7 +9,7 @@ import (
 	"unsafe"
 
 	log "github.com/Sirupsen/logrus"
-	bpflib "github.com/kinvolk/gobpf-elf-loader/bpf"
+	bpflib "github.com/iovisor/gobpf/elf"
 )
 
 var byteOrder binary.ByteOrder
@@ -101,9 +101,11 @@ func (n nilTracker) stop()                                                   {}
 // Closed connections are kept in the `closedConnections` slice for one iteration of `walkConnections`.
 type EbpfTracker struct {
 	sync.Mutex
-	reader      *bpflib.BPFKProbePerf
-	initialized bool
-	dead        bool
+	bpfModule        *bpflib.Module
+	perfMapIPV4      *bpflib.PerfMap
+	eventChannelIPV4 chan []byte
+	initialized      bool
+	dead             bool
 
 	openConnections   map[string]ebpfConnection
 	closedConnections []ebpfConnection
@@ -120,19 +122,36 @@ func newEbpfTracker(useEbpfConn bool) eventTracker {
 		return &nilTracker{}
 	}
 
-	bpfPerfEvent := bpflib.NewBpfPerfEvent(bpfObjectFile)
-	if bpfPerfEvent == nil {
+	bpfModule := bpflib.NewModule(bpfObjectFile)
+	if bpfModule == nil {
 		return &nilTracker{}
 	}
-	err = bpfPerfEvent.Load()
+	err = bpfModule.Load()
 	if err != nil {
-		log.Errorf("Error loading BPF program: %v", err)
+		log.Errorf("error loading BPF program: %v", err)
+		return &nilTracker{}
+	}
+
+	for kprobe := range bpfModule.IterKprobes() {
+		if err := bpfModule.EnableKprobe(kprobe.Name); err != nil {
+			log.Errorf("error enabling kprobe %q: %v", kprobe.Name, err)
+			return &nilTracker{}
+		}
+	}
+
+	channelV4 := make(chan []byte)
+
+	perfMapIPV4, err := bpflib.InitPerfMap(bpfModule, "tcp_event_ipv4", channelV4)
+	if err != nil {
+		log.Errorf("failed to init perf map 'tcp_event_ipv4': %v", err)
 		return &nilTracker{}
 	}
 
 	tracker := &EbpfTracker{
-		openConnections: map[string]ebpfConnection{},
-		reader:          bpfPerfEvent,
+		openConnections:  map[string]ebpfConnection{},
+		bpfModule:        bpfModule,
+		perfMapIPV4:      perfMapIPV4,
+		eventChannelIPV4: channelV4,
 	}
 	tracker.run()
 
@@ -218,12 +237,10 @@ func (t *EbpfTracker) walkConnections(f func(ebpfConnection)) {
 }
 
 func (t *EbpfTracker) run() {
-	channel := make(chan []byte)
-
 	go func() {
 		var event tcpEvent
 		for {
-			data := <-channel
+			data := <-t.eventChannelIPV4
 			err := binary.Read(bytes.NewBuffer(data), byteOrder, &event)
 			if err != nil {
 				log.Errorf("failed to decode received data: %s\n", err)
@@ -233,7 +250,7 @@ func (t *EbpfTracker) run() {
 		}
 	}()
 
-	t.reader.PollStart("tcp_event_ipv4", channel)
+	t.perfMapIPV4.PollStart()
 }
 
 func (t *EbpfTracker) hasDied() bool {
@@ -252,5 +269,5 @@ func (t *EbpfTracker) isInitialized() bool {
 }
 
 func (t *EbpfTracker) stop() {
-	// TODO: stop the go routine in run()
+	t.perfMapIPV4.PollStop()
 }
