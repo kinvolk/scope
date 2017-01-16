@@ -996,6 +996,24 @@
 			"branch": "master"
 		},
 		{
+			"importpath": "github.com/kinvolk/tcptracer-bpf/pkg/byteorder",
+			"repository": "https://github.com/kinvolk/tcptracer-bpf",
+			"vcs": "git",
+			"revision": "db8982b008c342800324556dab4f5fbf32e96c47",
+			"branch": "master",
+			"path": "pkg/byteorder",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/kinvolk/tcptracer-bpf/pkg/offsetguess",
+			"repository": "https://github.com/kinvolk/tcptracer-bpf",
+			"vcs": "git",
+			"revision": "fdc7e8398edfba6f62e912f63c950c19a037d12c",
+			"branch": "iaguis/offset-unsupported",
+			"path": "/pkg/offsetguess",
+			"notests": true
+		},
+		{
 			"importpath": "github.com/kr/pretty",
 			"repository": "https://github.com/kr/pretty",
 			"vcs": "git",
