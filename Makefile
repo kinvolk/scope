@@ -24,7 +24,6 @@ RM=--rm
 RUN_FLAGS=-ti
 BUILD_IN_CONTAINER=true
 GO_ENV=GOGC=off
-GO_ENV_ARM=$(GO_ENV) CC=/usr/bin/arm-linux-gnueabihf-gcc
 GO_BUILD_INSTALL_DEPS=-i
 GO_BUILD_TAGS='netgo unsafe'
 GO_BUILD_FLAGS=$(GO_BUILD_INSTALL_DEPS) -ldflags "-extldflags \"-static\" -X main.version=$(SCOPE_VERSION) -s -w" -tags $(GO_BUILD_TAGS)
@@ -34,6 +33,7 @@ GO_ENV+=CGO_ENABLED=1
 endif
 
 ifeq ($(GOARCH),arm)
+GO_ENV_ARM=$(GO_ENV) CC=/usr/bin/arm-linux-gnueabihf-gcc
 GO=env $(GO_ENV_ARM) go
 # The version of go shipped on debian doesn't have some standard library
 # packages for arm and when it tries to install them it fails because it
