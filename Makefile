@@ -35,11 +35,6 @@ endif
 ifeq ($(GOARCH),arm)
 GO_ENV_ARM=$(GO_ENV) CC=/usr/bin/arm-linux-gnueabihf-gcc
 GO=env $(GO_ENV_ARM) go
-# The version of go shipped on debian doesn't have some standard library
-# packages for arm and when it tries to install them it fails because it
-# doesn't have permission to write to /usr/lib
-# Use -pkgdir if we build for arm so packages are installed in $HOME
-GO_BUILD_FLAGS+=-pkgdir ~
 else
 GO=env $(GO_ENV) go
 endif
