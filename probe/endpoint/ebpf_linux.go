@@ -1,5 +1,3 @@
-//+build linux
-
 package endpoint
 
 func findBpfObjectFile() (string, error) {
