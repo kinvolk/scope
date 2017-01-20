@@ -27,13 +27,14 @@ GO_ENV=GOGC=off
 GO_BUILD_INSTALL_DEPS=-i
 GO_BUILD_TAGS='netgo unsafe'
 GO_BUILD_FLAGS=$(GO_BUILD_INSTALL_DEPS) -ldflags "-extldflags \"-static\" -X main.version=$(SCOPE_VERSION) -s -w" -tags $(GO_BUILD_TAGS)
+GOOS=$(shell go tool dist env | grep GOOS | sed -e 's/GOOS="\(.*\)"/\1/')
 
 ifeq ($(GOOS),linux)
 GO_ENV+=CGO_ENABLED=1
 endif
 
 ifeq ($(GOARCH),arm)
-ARM_CC=CC=/usr/bin/arm-linux-gnueabihf-gcc go
+ARM_CC=CC=/usr/bin/arm-linux-gnueabihf-gcc
 endif
 
 GO=env $(GO_ENV) $(ARM_CC) go
