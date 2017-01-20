@@ -61,7 +61,7 @@ type ebpfConnection struct {
 }
 
 type eventTracker interface {
-	handleConnection(eventType string, tuple fourTuple, pid int, networkNamespace string)
+	handleConnection(ev eventType, tuple fourTuple, pid int, networkNamespace string)
 	hasDied() bool
 	run()
 	walkConnections(f func(ebpfConnection))
@@ -76,13 +76,13 @@ var ebpfTracker *EbpfTracker
 // It is returned when the useEbpfConn flag is false.
 type nilTracker struct{}
 
-func (n nilTracker) handleConnection(_ string, _ fourTuple, _ int, _ string) {}
-func (n nilTracker) hasDied() bool                                           { return true }
-func (n nilTracker) run()                                                    {}
-func (n nilTracker) walkConnections(f func(ebpfConnection))                  {}
-func (n nilTracker) initialize()                                             {}
-func (n nilTracker) isInitialized() bool                                     { return false }
-func (n nilTracker) stop()                                                   {}
+func (n nilTracker) handleConnection(_ eventType, _ fourTuple, _ int, _ string) {}
+func (n nilTracker) hasDied() bool                                              { return true }
+func (n nilTracker) run()                                                       {}
+func (n nilTracker) walkConnections(f func(ebpfConnection))                     {}
+func (n nilTracker) initialize()                                                {}
+func (n nilTracker) isInitialized() bool                                        { return false }
+func (n nilTracker) stop()                                                      {}
 
 // EbpfTracker contains the sets of open and closed TCP connections.
 // Closed connections are kept in the `closedConnections` slice for one iteration of `walkConnections`.
@@ -111,13 +111,15 @@ func newEbpfTracker(useEbpfConn bool) eventTracker {
 	if bpfPerfEvent == nil {
 		return &nilTracker{}
 	}
-	err = bpfPerfEvent.Load()
-	if err != nil {
+	if err := bpfPerfEvent.Load(); err != nil {
 		log.Errorf("Error loading BPF program: %v", err)
 		return &nilTracker{}
 	}
 
-	bpfPerfEvent.EnableKprobes()
+	if err := bpfPerfEvent.EnableKprobes(); err != nil {
+		log.Errorf("Error enabling kprobes: %v", err)
+		return &nilTracker{}
+	}
 
 	tracker := &EbpfTracker{
 		openConnections: map[string]ebpfConnection{},
@@ -129,14 +131,14 @@ func newEbpfTracker(useEbpfConn bool) eventTracker {
 	return tracker
 }
 
-func (t *EbpfTracker) handleConnection(eventType string, tuple fourTuple, pid int, networkNamespace string) {
+func (t *EbpfTracker) handleConnection(ev eventType, tuple fourTuple, pid int, networkNamespace string) {
 	t.Lock()
 	defer t.Unlock()
 	log.Debugf("handleConnection(%v, [%v:%v --> %v:%v], pid=%v, netNS=%v)",
-		eventType, tuple.fromAddr, tuple.fromPort, tuple.toAddr, tuple.toPort, pid, networkNamespace)
+		ev, tuple.fromAddr, tuple.fromPort, tuple.toAddr, tuple.toPort, pid, networkNamespace)
 
-	switch eventType {
-	case "connect":
+	switch ev {
+	case EventConnect:
 		conn := ebpfConnection{
 			incoming:         false,
 			tuple:            tuple,
@@ -144,7 +146,7 @@ func (t *EbpfTracker) handleConnection(eventType string, tuple fourTuple, pid in
 			networkNamespace: networkNamespace,
 		}
 		t.openConnections[tuple.String()] = conn
-	case "accept":
+	case EventAccept:
 		conn := ebpfConnection{
 			incoming:         true,
 			tuple:            tuple,
@@ -152,7 +154,7 @@ func (t *EbpfTracker) handleConnection(eventType string, tuple fourTuple, pid in
 			networkNamespace: networkNamespace,
 		}
 		t.openConnections[tuple.String()] = conn
-	case "close":
+	case EventClose:
 		if deadConn, ok := t.openConnections[tuple.String()]; ok {
 			delete(t.openConnections, tuple.String())
 			t.closedConnections = append(t.closedConnections, deadConn)
@@ -179,7 +181,7 @@ func tcpEventCallback(event tcpEvent) {
 	sport := event.SPort
 	dport := event.DPort
 
-	if typ.String() == "close" || typ.String() == "unknown" {
+	if typ == EventClose {
 		alive = true
 	} else {
 		alive = false
@@ -188,7 +190,7 @@ func tcpEventCallback(event tcpEvent) {
 
 	log.Debugf("tcpEventCallback(%v, [%v:%v --> %v:%v], pid=%v, netNS=%v, cpu=%v, ts=%v)",
 		typ.String(), tuple.fromAddr, tuple.fromPort, tuple.toAddr, tuple.toPort, pid, event.NetNS, event.CPU, event.Timestamp)
-	ebpfTracker.handleConnection(typ.String(), tuple, int(pid), strconv.FormatUint(uint64(event.NetNS), 10))
+	ebpfTracker.handleConnection(typ, tuple, int(pid), strconv.FormatUint(uint64(event.NetNS), 10))
 }
 
 // walkConnections calls f with all open connections and connections that have come and gone
