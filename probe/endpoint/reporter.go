@@ -252,10 +252,10 @@ func (r *Reporter) procParsingSwitcher() {
 // outgoing connections correspond to "connect" events
 func (r Reporter) feedToEbpf(tuple fourTuple, incoming bool, pid int, namespaceID string) {
 	if r.conf.UseEbpfConn && !r.ebpfTracker.isInitialized() {
-		tcpEventType := "connect"
+		tcpEventType := EventConnect
 
 		if incoming {
-			tcpEventType = "accept"
+			tcpEventType = EventAccept
 		}
 
 		r.ebpfTracker.handleConnection(tcpEventType, tuple, pid, namespaceID)
