@@ -33,11 +33,10 @@ GO_ENV+=CGO_ENABLED=1
 endif
 
 ifeq ($(GOARCH),arm)
-GO_ENV_ARM=$(GO_ENV) CC=/usr/bin/arm-linux-gnueabihf-gcc
-GO=env $(GO_ENV_ARM) go
-else
-GO=env $(GO_ENV) go
+ARM_CC=CC=/usr/bin/arm-linux-gnueabihf-gcc go
 endif
+
+GO=env $(GO_ENV) $(ARM_CC) go
 
 NO_CROSS_COMP=unset GOOS GOARCH
 GO_HOST=$(NO_CROSS_COMP); env $(GO_ENV) go
