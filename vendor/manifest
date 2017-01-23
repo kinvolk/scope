@@ -1043,18 +1043,36 @@
 			"importpath": "github.com/kinvolk/tcptracer-bpf/pkg/byteorder",
 			"repository": "https://github.com/kinvolk/tcptracer-bpf",
 			"vcs": "git",
-			"revision": "db8982b008c342800324556dab4f5fbf32e96c47",
-			"branch": "master",
-			"path": "pkg/byteorder",
+			"revision": "d956a864981bf40f4a58445d381cd4f6efbbf9bc",
+			"branch": "iaguis/tcptracer-bpf",
+			"path": "/pkg/byteorder",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/kinvolk/tcptracer-bpf/pkg/event",
+			"repository": "https://github.com/kinvolk/tcptracer-bpf",
+			"vcs": "git",
+			"revision": "3cca2983af9bc23ebb1df67aef15169599d9d53b",
+			"branch": "iaguis/tcptracer-bpf",
+			"path": "/pkg/event",
 			"notests": true
 		},
 		{
 			"importpath": "github.com/kinvolk/tcptracer-bpf/pkg/offsetguess",
 			"repository": "https://github.com/kinvolk/tcptracer-bpf",
 			"vcs": "git",
-			"revision": "b021c81f340f16376990ab9566ed1cace8ee9311",
-			"branch": "master",
+			"revision": "d956a864981bf40f4a58445d381cd4f6efbbf9bc",
+			"branch": "iaguis/tcptracer-bpf",
 			"path": "/pkg/offsetguess",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/kinvolk/tcptracer-bpf/pkg/tracer",
+			"repository": "https://github.com/kinvolk/tcptracer-bpf",
+			"vcs": "git",
+			"revision": "44820719e51301219583823bad992d02b729febf",
+			"branch": "iaguis/tcptracer-bpf",
+			"path": "/pkg/tracer",
 			"notests": true
 		},
 		{
