@@ -14,14 +14,14 @@
 
 // +build !linux
 
-package offsetguess
+package tracer
 
 import (
 	"fmt"
 
-	"github.com/iovisor/gobpf/elf"
+	bpflib "github.com/iovisor/gobpf/elf"
 )
 
-func Guess(b *elf.Module) error {
-	return fmt.Errorf("not supported on non-Linux systems")
+func Initialize(module *bpflib.Module, eventChan chan []byte) (*bpflib.PerfMap, error) {
+	return nil, fmt.Errorf("not supported on non-Linux systems")
 }

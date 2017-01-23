@@ -7,6 +7,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/kinvolk/tcptracer-bpf/pkg/event"
 	"github.com/weaveworks/scope/probe/endpoint/procspy"
 	"github.com/weaveworks/scope/probe/process"
 	"github.com/weaveworks/scope/report"
@@ -252,10 +253,10 @@ func (r *Reporter) procParsingSwitcher() {
 // outgoing connections correspond to "connect" events
 func (r Reporter) feedToEbpf(tuple fourTuple, incoming bool, pid int, namespaceID string) {
 	if r.conf.UseEbpfConn && !r.ebpfTracker.isInitialized() {
-		tcpEventType := EventConnect
+		tcpEventType := event.EventConnect
 
 		if incoming {
-			tcpEventType = EventAccept
+			tcpEventType = event.EventAccept
 		}
 
 		r.ebpfTracker.handleConnection(tcpEventType, tuple, pid, namespaceID)

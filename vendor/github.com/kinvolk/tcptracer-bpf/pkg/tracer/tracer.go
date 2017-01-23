@@ -12,16 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build !linux
+// +build linux
 
-package offsetguess
+package tracer
 
 import (
 	"fmt"
 
-	"github.com/iovisor/gobpf/elf"
+	bpflib "github.com/iovisor/gobpf/elf"
+	"github.com/kinvolk/tcptracer-bpf/pkg/offsetguess"
 )
 
-func Guess(b *elf.Module) error {
-	return fmt.Errorf("not supported on non-Linux systems")
+const eventMapName = "tcp_event_ipv4"
+
+func Initialize(module *bpflib.Module, eventChan chan []byte) (*bpflib.PerfMap, error) {
+	if err := offsetguess.Guess(module); err != nil {
+		return nil, fmt.Errorf("error guessing offsetst: %v", err)
+	}
+
+	pmIPv4, err := bpflib.InitPerfMap(module, eventMapName, eventChan)
+	if err != nil {
+		return nil, fmt.Errorf("error initializing perf map for %q: %v", eventMapName, err)
+	}
+
+	return pmIPv4, nil
 }
