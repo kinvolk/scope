@@ -3,6 +3,7 @@ package endpoint
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"net"
 	"strconv"
 	"sync"
@@ -50,6 +51,43 @@ type tcpEvent struct {
 	SPort uint16
 	DPort uint16
 	NetNS uint32
+}
+
+func (event *tcpEvent) tuple() fourTuple {
+	saddrbuf := make([]byte, 4)
+	daddrbuf := make([]byte, 4)
+
+	byteorder.Host.PutUint32(saddrbuf, uint32(event.SAddr))
+	byteorder.Host.PutUint32(daddrbuf, uint32(event.DAddr))
+
+	sIP := net.IPv4(saddrbuf[0], saddrbuf[1], saddrbuf[2], saddrbuf[3])
+	dIP := net.IPv4(daddrbuf[0], daddrbuf[1], daddrbuf[2], daddrbuf[3])
+
+	sport := event.SPort
+	dport := event.DPort
+
+	var alive bool
+	typ := eventType(event.Type)
+	if typ == EventClose {
+		alive = true
+	} else {
+		alive = false
+	}
+
+	return fourTuple{sIP.String(), dIP.String(), uint16(sport), uint16(dport), alive}
+}
+
+func (event *tcpEvent) String() string {
+	typ := eventType(event.Type)
+	pid := event.Pid & 0xffffffff
+	tuple := event.tuple()
+	comm := string(event.Comm[:bytes.IndexByte(event.Comm[:], 0)])
+
+	return fmt.Sprintf("tcp event: timestamp=%v cpu=%v %v [%v:%v -> %v:%v] netns=%v pid=%v (%q)",
+		event.Timestamp, event.CPU,
+		typ.String(),
+		tuple.fromAddr, tuple.fromPort, tuple.toAddr, tuple.toPort,
+		event.NetNS, pid, comm)
 }
 
 // An ebpfConnection represents a TCP connection
@@ -134,8 +172,6 @@ func newEbpfTracker(useEbpfConn bool) eventTracker {
 func (t *EbpfTracker) handleConnection(ev eventType, tuple fourTuple, pid int, networkNamespace string) {
 	t.Lock()
 	defer t.Unlock()
-	log.Debugf("handleConnection(%v, [%v:%v --> %v:%v], pid=%v, netNS=%v)",
-		ev, tuple.fromAddr, tuple.fromPort, tuple.toAddr, tuple.toPort, pid, networkNamespace)
 
 	switch ev {
 	case EventConnect:
@@ -164,32 +200,24 @@ func (t *EbpfTracker) handleConnection(ev eventType, tuple fourTuple, pid int, n
 	}
 }
 
+var lastEvent tcpEvent
+
 func tcpEventCallback(event tcpEvent) {
-	var alive bool
 	typ := eventType(event.Type)
+	tuple := event.tuple()
 	pid := event.Pid & 0xffffffff
 
-	saddrbuf := make([]byte, 4)
-	daddrbuf := make([]byte, 4)
+	log.Debugf("%s", event.String())
 
-	byteorder.Host.PutUint32(saddrbuf, uint32(event.SAddr))
-	byteorder.Host.PutUint32(daddrbuf, uint32(event.DAddr))
-
-	sIP := net.IPv4(saddrbuf[0], saddrbuf[1], saddrbuf[2], saddrbuf[3])
-	dIP := net.IPv4(daddrbuf[0], daddrbuf[1], daddrbuf[2], daddrbuf[3])
-
-	sport := event.SPort
-	dport := event.DPort
-
-	if typ == EventClose {
-		alive = true
-	} else {
-		alive = false
+	if lastEvent.Timestamp > event.Timestamp {
+		log.Errorf("ERROR: late event: this event has a lower timestamp than the previous one\n"+
+			"last event: %s\n"+
+			"this event: %s\n",
+			lastEvent.String(),
+			event.String())
 	}
-	tuple := fourTuple{sIP.String(), dIP.String(), uint16(sport), uint16(dport), alive}
+	lastEvent = event
 
-	log.Debugf("tcpEventCallback(%v, [%v:%v --> %v:%v], pid=%v, netNS=%v, cpu=%v, ts=%v)",
-		typ.String(), tuple.fromAddr, tuple.fromPort, tuple.toAddr, tuple.toPort, pid, event.NetNS, event.CPU, event.Timestamp)
 	ebpfTracker.handleConnection(typ, tuple, int(pid), strconv.FormatUint(uint64(event.NetNS), 10))
 }
 
