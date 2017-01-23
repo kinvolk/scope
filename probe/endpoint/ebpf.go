@@ -10,47 +10,9 @@ import (
 	log "github.com/Sirupsen/logrus"
 	bpflib "github.com/iovisor/gobpf/elf"
 	"github.com/kinvolk/tcptracer-bpf/pkg/byteorder"
+	"github.com/kinvolk/tcptracer-bpf/pkg/event"
 	"github.com/kinvolk/tcptracer-bpf/pkg/offsetguess"
 )
-
-type eventType uint32
-
-// These constants should be in sync with the equivalent definitions in the ebpf program.
-const (
-	_ eventType = iota
-	EventConnect
-	EventAccept
-	EventClose
-)
-
-func (e eventType) String() string {
-	switch e {
-	case EventConnect:
-		return "connect"
-	case EventAccept:
-		return "accept"
-	case EventClose:
-		return "close"
-	default:
-		return "unknown"
-	}
-}
-
-// tcpEvent should be in sync with the struct in the ebpf maps.
-type tcpEvent struct {
-	// Timestamp must be the first field, the sorting depends on it
-	Timestamp uint64
-
-	CPU   uint64
-	Type  uint32
-	Pid   uint32
-	Comm  [16]byte
-	SAddr uint32
-	DAddr uint32
-	SPort uint16
-	DPort uint16
-	NetNS uint32
-}
 
 // An ebpfConnection represents a TCP connection
 type ebpfConnection struct {
@@ -164,22 +126,22 @@ func (t *EbpfTracker) handleConnection(ev eventType, tuple fourTuple, pid int, n
 	}
 }
 
-func tcpEventCallback(event tcpEvent) {
+func tcpEventCallback(event event.Tcp) {
 	var alive bool
-	typ := eventType(event.Type)
-	pid := event.Pid & 0xffffffff
+	typ := eventType(ev.Type)
+	pid := ev.Pid & 0xffffffff
 
 	saddrbuf := make([]byte, 4)
 	daddrbuf := make([]byte, 4)
 
-	byteorder.Host.PutUint32(saddrbuf, uint32(event.SAddr))
-	byteorder.Host.PutUint32(daddrbuf, uint32(event.DAddr))
+	byteorder.Host.PutUint32(saddrbuf, uint32(ev.SAddr))
+	byteorder.Host.PutUint32(daddrbuf, uint32(ev.DAddr))
 
 	sIP := net.IPv4(saddrbuf[0], saddrbuf[1], saddrbuf[2], saddrbuf[3])
 	dIP := net.IPv4(daddrbuf[0], daddrbuf[1], daddrbuf[2], daddrbuf[3])
 
-	sport := event.SPort
-	dport := event.DPort
+	sport := ev.SPort
+	dport := ev.DPort
 
 	if typ == EventClose {
 		alive = true
@@ -189,8 +151,8 @@ func tcpEventCallback(event tcpEvent) {
 	tuple := fourTuple{sIP.String(), dIP.String(), uint16(sport), uint16(dport), alive}
 
 	log.Debugf("tcpEventCallback(%v, [%v:%v --> %v:%v], pid=%v, netNS=%v, cpu=%v, ts=%v)",
-		typ.String(), tuple.fromAddr, tuple.fromPort, tuple.toAddr, tuple.toPort, pid, event.NetNS, event.CPU, event.Timestamp)
-	ebpfTracker.handleConnection(typ, tuple, int(pid), strconv.FormatUint(uint64(event.NetNS), 10))
+		typ.String(), tuple.fromAddr, tuple.fromPort, tuple.toAddr, tuple.toPort, pid, ev.NetNS, ev.CPU, ev.Timestamp)
+	ebpfTracker.handleConnection(typ, tuple, int(pid), strconv.FormatUint(uint64(ev.NetNS), 10))
 }
 
 // walkConnections calls f with all open connections and connections that have come and gone
