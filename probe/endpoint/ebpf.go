@@ -263,6 +263,10 @@ func (t *EbpfTracker) run() {
 		return
 	}
 
+	pmIPv4.SetTimestampFunc(func(data *[]byte) (ts uint64) {
+		_ = binary.Read(bytes.NewBuffer(*data), byteorder.Host, &ts)
+		return
+	})
 	pmIPv4.PollStart()
 }
 
