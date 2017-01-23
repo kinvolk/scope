@@ -11,7 +11,7 @@ import (
 	bpflib "github.com/iovisor/gobpf/elf"
 	"github.com/kinvolk/tcptracer-bpf/pkg/byteorder"
 	"github.com/kinvolk/tcptracer-bpf/pkg/event"
-	"github.com/kinvolk/tcptracer-bpf/pkg/offsetguess"
+	"github.com/kinvolk/tcptracer-bpf/pkg/tracer"
 )
 
 // An ebpfConnection represents a TCP connection
@@ -23,7 +23,7 @@ type ebpfConnection struct {
 }
 
 type eventTracker interface {
-	handleConnection(ev eventType, tuple fourTuple, pid int, networkNamespace string)
+	handleConnection(ev event.EventType, tuple fourTuple, pid int, networkNamespace string)
 	hasDied() bool
 	run()
 	walkConnections(f func(ebpfConnection))
@@ -38,13 +38,13 @@ var ebpfTracker *EbpfTracker
 // It is returned when the useEbpfConn flag is false.
 type nilTracker struct{}
 
-func (n nilTracker) handleConnection(_ eventType, _ fourTuple, _ int, _ string) {}
-func (n nilTracker) hasDied() bool                                              { return true }
-func (n nilTracker) run()                                                       {}
-func (n nilTracker) walkConnections(f func(ebpfConnection))                     {}
-func (n nilTracker) initialize()                                                {}
-func (n nilTracker) isInitialized() bool                                        { return false }
-func (n nilTracker) stop()                                                      {}
+func (n nilTracker) handleConnection(_ event.EventType, _ fourTuple, _ int, _ string) {}
+func (n nilTracker) hasDied() bool                                                    { return true }
+func (n nilTracker) run()                                                             {}
+func (n nilTracker) walkConnections(f func(ebpfConnection))                           {}
+func (n nilTracker) initialize()                                                      {}
+func (n nilTracker) isInitialized() bool                                              { return false }
+func (n nilTracker) stop()                                                            {}
 
 // EbpfTracker contains the sets of open and closed TCP connections.
 // Closed connections are kept in the `closedConnections` slice for one iteration of `walkConnections`.
@@ -93,14 +93,14 @@ func newEbpfTracker(useEbpfConn bool) eventTracker {
 	return tracker
 }
 
-func (t *EbpfTracker) handleConnection(ev eventType, tuple fourTuple, pid int, networkNamespace string) {
+func (t *EbpfTracker) handleConnection(ev event.EventType, tuple fourTuple, pid int, networkNamespace string) {
 	t.Lock()
 	defer t.Unlock()
 	log.Debugf("handleConnection(%v, [%v:%v --> %v:%v], pid=%v, netNS=%v)",
 		ev, tuple.fromAddr, tuple.fromPort, tuple.toAddr, tuple.toPort, pid, networkNamespace)
 
 	switch ev {
-	case EventConnect:
+	case event.EventConnect:
 		conn := ebpfConnection{
 			incoming:         false,
 			tuple:            tuple,
@@ -108,7 +108,7 @@ func (t *EbpfTracker) handleConnection(ev eventType, tuple fourTuple, pid int, n
 			networkNamespace: networkNamespace,
 		}
 		t.openConnections[tuple.String()] = conn
-	case EventAccept:
+	case event.EventAccept:
 		conn := ebpfConnection{
 			incoming:         true,
 			tuple:            tuple,
@@ -116,7 +116,7 @@ func (t *EbpfTracker) handleConnection(ev eventType, tuple fourTuple, pid int, n
 			networkNamespace: networkNamespace,
 		}
 		t.openConnections[tuple.String()] = conn
-	case EventClose:
+	case event.EventClose:
 		if deadConn, ok := t.openConnections[tuple.String()]; ok {
 			delete(t.openConnections, tuple.String())
 			t.closedConnections = append(t.closedConnections, deadConn)
@@ -126,9 +126,9 @@ func (t *EbpfTracker) handleConnection(ev eventType, tuple fourTuple, pid int, n
 	}
 }
 
-func tcpEventCallback(event event.Tcp) {
+func tcpEventCallback(ev event.Tcp) {
 	var alive bool
-	typ := eventType(ev.Type)
+	typ := event.EventType(ev.Type)
 	pid := ev.Pid & 0xffffffff
 
 	saddrbuf := make([]byte, 4)
@@ -143,7 +143,7 @@ func tcpEventCallback(event event.Tcp) {
 	sport := ev.SPort
 	dport := ev.DPort
 
-	if typ == EventClose {
+	if typ == event.EventClose {
 		alive = true
 	} else {
 		alive = false
@@ -171,33 +171,28 @@ func (t *EbpfTracker) walkConnections(f func(ebpfConnection)) {
 }
 
 func (t *EbpfTracker) run() {
-	if err := offsetguess.Guess(t.reader); err != nil {
-		log.Errorf("%v\n", err)
-		return
-	}
-
 	channel := make(chan []byte)
 
 	go func() {
-		var event tcpEvent
+		var ev event.Tcp
 		for {
 			data := <-channel
-			err := binary.Read(bytes.NewBuffer(data), byteorder.Host, &event)
+			err := binary.Read(bytes.NewBuffer(data), byteorder.Host, &ev)
 			if err != nil {
 				log.Errorf("Failed to decode received data: %s\n", err)
 				continue
 			}
-			tcpEventCallback(event)
+			tcpEventCallback(ev)
 		}
 	}()
 
-	pmIPv4, err := bpflib.InitPerfMap(t.reader, "tcp_event_ipv4", channel)
+	perfMap, err := tracer.InitializeIPv4(t.reader, channel)
 	if err != nil {
 		log.Errorf("%v\n", err)
 		return
 	}
 
-	pmIPv4.PollStart()
+	perfMap.PollStart()
 }
 
 func (t *EbpfTracker) hasDied() bool {
