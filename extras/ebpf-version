@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+SUDO=$(docker info >/dev/null 2>&1 || echo "sudo -E")
+
+${SUDO} docker run -v "$(pwd)"/docker/ebpf.o:/ebpf.o --entrypoint=/bin/sh \
+    weaveworks/scope-backend-build \
+    -c 'sha1sum /ebpf.o ; objdump -s --section=build_id /ebpf.o | grep "^ " | xxd -r | tr "\0" "\n" ; echo'
