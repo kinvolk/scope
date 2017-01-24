@@ -65,7 +65,7 @@ type conntrack struct {
 // flowWalker is something that maintains flows, and provides an accessor
 // method to walk them.
 type flowWalker interface {
-	walkFlows(f func(flow, bool))
+	walkFlows(f func(f flow, active bool))
 	stop()
 }
 
