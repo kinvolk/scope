@@ -7,6 +7,7 @@ RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/community" >>/etc/apk/reposi
 	rm -rf /var/cache/apk/*
 ADD ./docker.tgz /
 ADD ./ebpf.o /usr/libexec/scope/ebpf/
+ADD ./ebpf.version /usr/libexec/scope/ebpf/
 ADD ./demo.json /
 ADD ./weave /usr/bin/
 COPY ./scope ./runsvinit ./entrypoint.sh /home/weave/
