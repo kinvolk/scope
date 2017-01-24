@@ -58,6 +58,7 @@ docker/weave:
 
 docker/ebpf.o: Makefile
 	curl -L $(EBPF_ARTIFACT_URL) -o docker/ebpf.o
+	./extras/ebpf-version > docker/ebpf.version
 
 $(SCOPE_EXPORT): $(SCOPE_EXE) $(DOCKER_DISTRIB) docker/weave $(RUNSVINIT) docker/Dockerfile docker/demo.json docker/run-app docker/run-probe docker/entrypoint.sh docker/ebpf.o
 	cp $(SCOPE_EXE) $(RUNSVINIT) docker/
