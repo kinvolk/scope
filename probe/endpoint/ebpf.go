@@ -13,6 +13,7 @@ import (
 	"github.com/kinvolk/tcptracer-bpf/pkg/byteorder"
 	"github.com/kinvolk/tcptracer-bpf/pkg/event"
 	"github.com/kinvolk/tcptracer-bpf/pkg/tracer"
+	"github.com/weaveworks/scope/probe/endpoint/procspy"
 )
 
 // An ebpfConnection represents a TCP connection
@@ -28,7 +29,7 @@ type eventTracker interface {
 	hasDied() bool
 	run()
 	walkConnections(f func(ebpfConnection))
-	initialize()
+	initialize(ci procspy.ConnIter, fw flowWalker, hostNodeID string)
 	isInitialized() bool
 	stop()
 }
@@ -79,7 +80,7 @@ func newEbpfTracker(useEbpfConn bool) (eventTracker, error) {
 	tracker.run()
 
 	ebpfTracker = tracker
-	return tracker
+	return tracker, nil
 }
 
 func (t *EbpfTracker) handleConnection(ev event.EventType, tuple fourTuple, pid int, networkNamespace string) {
@@ -196,7 +197,59 @@ func (t *EbpfTracker) hasDied() bool {
 	return t.dead
 }
 
-func (t *EbpfTracker) initialize() {
+func (t *EbpfTracker) initialize(conns procspy.ConnIter, fw flowWalker, hostNodeID string) {
+
+	seenTuples := map[string]fourTuple{}
+	// Consult the flowWalker to get the initial state
+	fw.walkFlows(func(f flow, active bool) {
+		tuple := fourTuple{
+			f.Original.Layer3.SrcIP,
+			f.Original.Layer3.DstIP,
+			uint16(f.Original.Layer4.SrcPort),
+			uint16(f.Original.Layer4.DstPort),
+			active,
+		}
+		// Handle DNAT-ed connections in the initial states.
+		if f.Original.Layer3.DstIP != f.Reply.Layer3.SrcIP {
+			tuple = fourTuple{
+				f.Reply.Layer3.DstIP,
+				f.Reply.Layer3.SrcIP,
+				uint16(f.Reply.Layer4.DstPort),
+				uint16(f.Reply.Layer4.SrcPort),
+				active,
+			}
+		}
+
+		seenTuples[tuple.key()] = tuple
+	})
+	fw.stop()
+
+	for conn := conns.Next(); conn != nil; conn = conns.Next() {
+		var (
+			namespaceID string
+			tuple       = fourTuple{
+				conn.LocalAddress.String(),
+				conn.RemoteAddress.String(),
+				conn.LocalPort,
+				conn.RemotePort,
+				true,
+			}
+		)
+
+		if conn.Proc.NetNamespaceID > 0 {
+			namespaceID = strconv.FormatUint(conn.Proc.NetNamespaceID, 10)
+		}
+
+		// We can use a port-heuristic to guess the direction.
+		// We assume that tuple.fromPort < tuple.toPort is a connect event (outgoing)
+		canonical, ok := seenTuples[tuple.key()]
+		if (ok && canonical != tuple) || (!ok && tuple.fromPort < tuple.toPort) {
+			t.handleConnection(event.EventConnect, tuple, int(conn.Proc.PID), namespaceID)
+		} else {
+			t.handleConnection(event.EventAccept, tuple, int(conn.Proc.PID), namespaceID)
+		}
+
+	}
 	t.initialized = true
 }
 
