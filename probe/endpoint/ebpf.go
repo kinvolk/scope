@@ -127,7 +127,7 @@ func (t *EbpfTracker) handleConnection(ev event.EventType, tuple fourTuple, pid 
 }
 
 func tcpEventCallback(ev event.Tcp) {
-	var alive bool
+	var active bool
 	typ := event.EventType(ev.Type)
 	pid := ev.Pid & 0xffffffff
 
@@ -144,11 +144,11 @@ func tcpEventCallback(ev event.Tcp) {
 	dport := ev.DPort
 
 	if typ == event.EventClose {
-		alive = true
+		active = true
 	} else {
-		alive = false
+		active = false
 	}
-	tuple := fourTuple{sIP.String(), dIP.String(), uint16(sport), uint16(dport), alive}
+	tuple := fourTuple{sIP.String(), dIP.String(), uint16(sport), uint16(dport), active}
 
 	log.Debugf("tcpEventCallback(%v, [%v:%v --> %v:%v], pid=%v, netNS=%v, cpu=%v, ts=%v)",
 		typ.String(), tuple.fromAddr, tuple.fromPort, tuple.toAddr, tuple.toPort, pid, ev.NetNS, ev.CPU, ev.Timestamp)

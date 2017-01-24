@@ -103,13 +103,13 @@ func (r *Reporter) Report() (report.Report, error) {
 		extraNodeInfo := map[string]string{
 			Conntracked: "true",
 		}
-		r.flowWalker.walkFlows(func(f flow, alive bool) {
+		r.flowWalker.walkFlows(func(f flow, active bool) {
 			tuple := fourTuple{
 				f.Original.Layer3.SrcIP,
 				f.Original.Layer3.DstIP,
 				uint16(f.Original.Layer4.SrcPort),
 				uint16(f.Original.Layer4.DstPort),
-				alive,
+				active,
 			}
 			// Handle DNAT-ed short-lived connections.
 			// The NAT mapper won't help since it only runs periodically,
@@ -120,7 +120,7 @@ func (r *Reporter) Report() (report.Report, error) {
 					f.Reply.Layer3.SrcIP,
 					uint16(f.Reply.Layer4.DstPort),
 					uint16(f.Reply.Layer4.SrcPort),
-					alive,
+					active,
 				}
 			}
 
@@ -163,12 +163,12 @@ func (r *Reporter) Report() (report.Report, error) {
 			// the direction.
 			canonical, ok := seenTuples[tuple.key()]
 			if (ok && canonical != tuple) || (!ok && tuple.fromPort < tuple.toPort) {
-				if tuple.alive {
+				if tuple.active {
 					r.feedToEbpf(tuple, true, int(conn.Proc.PID), namespaceID)
 				}
 				r.addConnection(&rpt, reverse(tuple), namespaceID, toNodeInfo, fromNodeInfo)
 			} else {
-				if tuple.alive {
+				if tuple.active {
 					r.feedToEbpf(tuple, false, int(conn.Proc.PID), namespaceID)
 				}
 				r.addConnection(&rpt, tuple, namespaceID, fromNodeInfo, toNodeInfo)
