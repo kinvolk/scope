@@ -161,14 +161,11 @@ func probeMain(flags probeFlags, targets []appclient.Target) {
 	var scanner procspy.ConnectionScanner
 	if flags.procEnabled {
 		processCache = process.NewCachingWalker(process.NewWalker(flags.procRoot))
-		processCache.Tick()
-		p.AddTicker(processCache)
-		// if eBPF tracking is enabled, scan /proc synchronously, and just once
-		if flags.useEbpfConn {
-			scanner = procspy.NewSyncConnectionScanner(processCache)
-		} else {
+		// The eBPF tracker finds connections itself and does not need the connection scanner
+		if !flags.useEbpfConn {
 			scanner = procspy.NewConnectionScanner(processCache)
 		}
+		p.AddTicker(processCache)
 		p.AddReporter(process.NewReporter(processCache, hostID, process.GetDeltaTotalJiffies))
 	}
 
