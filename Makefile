@@ -76,6 +76,7 @@ $(CLOUD_AGENT_EXPORT): docker/Dockerfile.cloud-agent docker/$(SCOPE_EXE) docker/
 
 docker/ebpf.o: Makefile
 	curl -L $(EBPF_ARTIFACT_URL) -o docker/ebpf.o
+	./extras/ebpf-version > docker/ebpf.version
 
 $(SCOPE_EXPORT): docker/Dockerfile.scope $(CLOUD_AGENT_EXPORT) docker/$(RUNSVINIT) docker/demo.json docker/run-app docker/run-probe docker/entrypoint.sh docker/ebpf.o
 
