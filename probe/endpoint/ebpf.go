@@ -192,6 +192,11 @@ func (t *EbpfTracker) run() {
 		return
 	}
 
+	perfMap.SetTimestampFunc(func(data *[]byte) (ts uint64) {
+		_ = binary.Read(bytes.NewBuffer(*data), byteorder.Host, &ts)
+		return
+	})
+
 	perfMap.PollStart()
 }
 
