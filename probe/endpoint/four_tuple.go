@@ -7,6 +7,8 @@ import (
 )
 
 // fourTuple is an (IP, port, IP, port) tuple, representing a connection
+// active tells whether the connection belongs to an activeFlow (see
+// conntrack.go)
 type fourTuple struct {
 	fromAddr, toAddr string
 	fromPort, toPort uint16
