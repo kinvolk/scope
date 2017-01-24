@@ -7,6 +7,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/kinvolk/tcptracer-bpf/pkg/tracer"
+	"github.com/weaveworks/scope/probe/endpoint/procspy"
 )
 
 const bpfObjectPath = "/usr/libexec/scope/ebpf/tcptracer-ebpf.o"
@@ -21,10 +22,10 @@ type ebpfConnection struct {
 
 type eventTracker interface {
 	handleConnection(ev tracer.EventType, tuple fourTuple, pid int, networkNamespace string)
-	hasDied() bool
 	walkConnections(f func(ebpfConnection))
-	initialize()
-	isInitialized() bool
+	feedInitialConnections(ci procspy.ConnIter, seenTuples map[string]fourTuple, hostNodeID string)
+	feedInitialConnectionsEmpty()
+	isFed() bool
 	stop()
 }
 
@@ -34,9 +35,9 @@ var ebpfTracker *EbpfTracker
 // Closed connections are kept in the `closedConnections` slice for one iteration of `walkConnections`.
 type EbpfTracker struct {
 	sync.Mutex
-	tracer      *tracer.Tracer
-	initialized bool
-	dead        bool
+	tracer *tracer.Tracer
+	fed    bool
+	dead   bool
 
 	openConnections   map[string]ebpfConnection
 	closedConnections []ebpfConnection
@@ -133,19 +134,41 @@ func (t *EbpfTracker) walkConnections(f func(ebpfConnection)) {
 	t.closedConnections = t.closedConnections[:0]
 }
 
-func (t *EbpfTracker) hasDied() bool {
-	t.Lock()
-	defer t.Unlock()
+func (t *EbpfTracker) feedInitialConnections(conns procspy.ConnIter, seenTuples map[string]fourTuple, hostNodeID string) {
+	for conn := conns.Next(); conn != nil; conn = conns.Next() {
+		var (
+			namespaceID string
+			tuple       = fourTuple{
+				conn.LocalAddress.String(),
+				conn.RemoteAddress.String(),
+				conn.LocalPort,
+				conn.RemotePort,
+				true,
+			}
+		)
 
-	return t.dead
+		if conn.Proc.NetNamespaceID > 0 {
+			namespaceID = strconv.FormatUint(conn.Proc.NetNamespaceID, 10)
+		}
+
+		// We can use a port-heuristic to guess the direction.
+		// We assume that tuple.fromPort < tuple.toPort is a connect event (outgoing)
+		canonical, ok := seenTuples[tuple.key()]
+		if (ok && canonical != tuple) || (!ok && tuple.fromPort < tuple.toPort) {
+			t.handleConnection(tracer.EventConnect, tuple, int(conn.Proc.PID), namespaceID)
+		} else {
+			t.handleConnection(tracer.EventAccept, tuple, int(conn.Proc.PID), namespaceID)
+		}
+	}
+	t.fed = true
 }
 
-func (t *EbpfTracker) initialize() {
-	t.initialized = true
+func (t *EbpfTracker) feedInitialConnectionsEmpty() {
+	t.fed = true
 }
 
-func (t *EbpfTracker) isInitialized() bool {
-	return t.initialized
+func (t *EbpfTracker) isFed() bool {
+	return t.fed
 }
 
 func (t *EbpfTracker) stop() {
