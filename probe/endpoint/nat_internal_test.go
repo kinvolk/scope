@@ -13,7 +13,7 @@ type mockFlowWalker struct {
 	flows []flow
 }
 
-func (m *mockFlowWalker) walkFlows(f func(f flow, alive bool)) {
+func (m *mockFlowWalker) walkFlows(f func(f flow, active bool)) {
 	for _, flow := range m.flows {
 		f(flow, true)
 	}
