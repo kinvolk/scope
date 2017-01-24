@@ -163,6 +163,8 @@ func (r *Reporter) Report() (report.Report, error) {
 			// the direction.
 			canonical, ok := seenTuples[tuple.key()]
 			if (ok && canonical != tuple) || (!ok && tuple.fromPort < tuple.toPort) {
+				// we can't feed non-active connections to eBPF because they'd
+				// never get any close event and would remain forever
 				if tuple.active {
 					r.feedToEbpf(tuple, true, int(conn.Proc.PID), namespaceID)
 				}
