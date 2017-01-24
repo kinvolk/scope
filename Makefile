@@ -58,10 +58,7 @@ docker/weave:
 
 docker/ebpf.o: Makefile
 	curl -L $(EBPF_ARTIFACT_URL) -o docker/ebpf.o
-	@echo ; echo "ebpf.o build URL and sha1sum:"
-	@$(SUDO) docker run -v $(shell pwd)/docker/ebpf.o:/ebpf.o --entrypoint=/bin/sh \
-		$(SCOPE_BACKEND_BUILD_IMAGE) \
-		-c 'sha1sum /ebpf.o ; objdump -s --section=build_id /ebpf.o | grep "^ " | xxd -r ; echo ; echo'
+	./tools/ebpf-version > docker/ebpf.version
 
 $(SCOPE_EXPORT): $(SCOPE_EXE) $(DOCKER_DISTRIB) docker/weave $(RUNSVINIT) docker/Dockerfile docker/demo.json docker/run-app docker/run-probe docker/entrypoint.sh docker/ebpf.o
 	cp $(SCOPE_EXE) $(RUNSVINIT) docker/
