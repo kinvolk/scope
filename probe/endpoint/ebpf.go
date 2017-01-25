@@ -1,6 +1,7 @@
 package endpoint
 
 import (
+	"errors"
 	"strconv"
 	"sync"
 
@@ -29,17 +30,6 @@ type eventTracker interface {
 
 var ebpfTracker *EbpfTracker
 
-// nilTracker is a tracker that does nothing, and it implements the eventTracker interface.
-// It is returned when the useEbpfConn flag is false.
-type nilTracker struct{}
-
-func (n nilTracker) handleConnection(_ tracer.EventType, _ fourTuple, _ int, _ string) {}
-func (n nilTracker) hasDied() bool                                                     { return true }
-func (n nilTracker) walkConnections(f func(ebpfConnection))                            {}
-func (n nilTracker) initialize()                                                       {}
-func (n nilTracker) isInitialized() bool                                               { return false }
-func (n nilTracker) stop()                                                             {}
-
 // EbpfTracker contains the sets of open and closed TCP connections.
 // Closed connections are kept in the `closedConnections` slice for one iteration of `walkConnections`.
 type EbpfTracker struct {
@@ -52,15 +42,15 @@ type EbpfTracker struct {
 	closedConnections []ebpfConnection
 }
 
-func newEbpfTracker(useEbpfConn bool) eventTracker {
+func newEbpfTracker(useEbpfConn bool) (eventTracker, error) {
 	if !useEbpfConn {
-		return &nilTracker{}
+		return nil, errors.New("ebpf tracker not enabled")
 	}
 
 	t, err := tracer.NewTracerFromFile(bpfObjectPath, tcpEventCbV4, tcpEventCbV6)
 	if err != nil {
-		log.Errorf("Couldn't start ebpf tracer: %v", err)
-		return &nilTracker{}
+		log.Errorf("Cannot find BPF object file: %v", err)
+		return nil, err
 	}
 
 	tracker := &EbpfTracker{
@@ -69,7 +59,7 @@ func newEbpfTracker(useEbpfConn bool) eventTracker {
 	}
 
 	ebpfTracker = tracker
-	return tracker
+	return tracker, nil
 }
 
 var lastTimestampV4 uint64
