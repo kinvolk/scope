@@ -3,6 +3,7 @@ package endpoint
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"net"
 	"strconv"
 	"sync"
@@ -34,18 +35,6 @@ type eventTracker interface {
 
 var ebpfTracker *EbpfTracker
 
-// nilTracker is a tracker that does nothing, and it implements the eventTracker interface.
-// It is returned when the useEbpfConn flag is false.
-type nilTracker struct{}
-
-func (n nilTracker) handleConnection(_ event.EventType, _ fourTuple, _ int, _ string) {}
-func (n nilTracker) hasDied() bool                                                    { return true }
-func (n nilTracker) run()                                                             {}
-func (n nilTracker) walkConnections(f func(ebpfConnection))                           {}
-func (n nilTracker) initialize()                                                      {}
-func (n nilTracker) isInitialized() bool                                              { return false }
-func (n nilTracker) stop()                                                            {}
-
 // EbpfTracker contains the sets of open and closed TCP connections.
 // Closed connections are kept in the `closedConnections` slice for one iteration of `walkConnections`.
 type EbpfTracker struct {
@@ -58,29 +47,29 @@ type EbpfTracker struct {
 	closedConnections []ebpfConnection
 }
 
-func newEbpfTracker(useEbpfConn bool) eventTracker {
+func newEbpfTracker(useEbpfConn bool) (eventTracker, error) {
 	if !useEbpfConn {
-		return &nilTracker{}
+		return nil, errors.New("ebpf tracker not enabled")
 	}
 
 	bpfObjectFile, err := findBpfObjectFile()
 	if err != nil {
 		log.Errorf("Cannot find BPF object file: %v", err)
-		return &nilTracker{}
+		return nil, err
 	}
 
 	bpfPerfEvent := bpflib.NewModule(bpfObjectFile)
 	if bpfPerfEvent == nil {
-		return &nilTracker{}
+		return nil, err
 	}
 	if err := bpfPerfEvent.Load(); err != nil {
 		log.Errorf("Error loading BPF program: %v", err)
-		return &nilTracker{}
+		return nil, err
 	}
 
 	if err := bpfPerfEvent.EnableKprobes(); err != nil {
 		log.Errorf("Error enabling kprobes: %v", err)
-		return &nilTracker{}
+		return nil, err
 	}
 
 	tracker := &EbpfTracker{
