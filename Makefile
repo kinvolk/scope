@@ -30,7 +30,7 @@ GO_BUILD_FLAGS=$(GO_BUILD_INSTALL_DEPS) -ldflags "-extldflags \"-static\" -X mai
 GOOS=$(shell go tool dist env | grep GOOS | sed -e 's/GOOS="\(.*\)"/\1/')
 # TODO: update this to weaveworks/tcptracer-bpf:master when
 # https://github.com/weaveworks/tcptracer-bpf/pull/1 gets merged
-EBPF_ARTIFACT_URL='https://circleci.com/api/v1/project/kinvolk/tcptracer-bpf/latest/artifacts/0/$$CIRCLE_ARTIFACTS/ebpf.o?branch=iaguis/tcptracer-bpf&filter=successful'
+EBPF_ARTIFACT_URL='https://circleci.com/api/v1/project/kinvolk/tcptracer-bpf/latest/artifacts/0/$$CIRCLE_ARTIFACTS/tcptracer-ebpf.o?branch=iaguis/refactor-guess&filter=successful'
 
 
 ifeq ($(GOOS),linux)
@@ -74,11 +74,11 @@ docker/docker: $(DOCKER_DISTRIB)
 
 $(CLOUD_AGENT_EXPORT): docker/Dockerfile.cloud-agent docker/$(SCOPE_EXE) docker/docker docker/weave docker/weaveutil
 
-docker/ebpf.o: Makefile
-	curl -L $(EBPF_ARTIFACT_URL) -o docker/ebpf.o
-	./extras/ebpf-version > docker/ebpf.version
+docker/tcptracer-ebpf.o: Makefile
+	curl -L $(EBPF_ARTIFACT_URL) -o docker/tcptracer-ebpf.o
+	./extras/ebpf-version > docker/tcptracer-ebpf.version
 
-$(SCOPE_EXPORT): docker/Dockerfile.scope $(CLOUD_AGENT_EXPORT) docker/$(RUNSVINIT) docker/demo.json docker/run-app docker/run-probe docker/entrypoint.sh docker/ebpf.o
+$(SCOPE_EXPORT): docker/Dockerfile.scope $(CLOUD_AGENT_EXPORT) docker/$(RUNSVINIT) docker/demo.json docker/run-app docker/run-probe docker/entrypoint.sh docker/tcptracer-ebpf.o
 
 $(RUNSVINIT): vendor/runsvinit/*.go
 
