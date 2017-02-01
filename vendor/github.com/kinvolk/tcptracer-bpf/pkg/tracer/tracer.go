@@ -1,17 +1,3 @@
-// Copyright 2017 Kinvolk GmbH
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 // +build linux
 
 package tracer
@@ -20,11 +6,77 @@ import (
 	"fmt"
 
 	bpflib "github.com/iovisor/gobpf/elf"
-	"github.com/kinvolk/tcptracer-bpf/pkg/offsetguess"
 )
 
+type Tracer struct {
+	m           *bpflib.Module
+	perfMapIPV4 *bpflib.PerfMap
+	perfMapIPV6 *bpflib.PerfMap
+}
+
+func NewTracerFromFile(fileName string, tcpEventCbV4 func(TcpV4), tcpEventCbV6 func(TcpV6)) (*Tracer, error) {
+	m := bpflib.NewModule(fileName)
+	if m == nil {
+		return nil, fmt.Errorf("BPF not supported")
+	}
+
+	err := m.Load()
+	if err != nil {
+		return nil, err
+	}
+
+	err = m.EnableKprobes()
+	if err != nil {
+		return nil, err
+	}
+
+	channelV4 := make(chan []byte)
+	channelV6 := make(chan []byte)
+
+	perfMapIPV4, err := initializeIPv4(m, channelV4)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init perf map for IPv4 events: %s\n", err)
+	}
+
+	perfMapIPV6, err := initializeIPv6(m, channelV6)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init perf map for IPv6 events: %s\n", err)
+	}
+
+	perfMapIPV4.SetTimestampFunc(tcpV4Timestamp)
+	perfMapIPV6.SetTimestampFunc(tcpV6Timestamp)
+
+	go func() {
+		for {
+			data := <-channelV4
+			tcpEventCbV4(tcpV4ToGo(&data))
+		}
+	}()
+
+	go func() {
+		for {
+			data := <-channelV6
+			tcpEventCbV6(tcpV6ToGo(&data))
+		}
+	}()
+
+	perfMapIPV4.PollStart()
+	perfMapIPV6.PollStart()
+
+	return &Tracer{
+		m:           m,
+		perfMapIPV4: perfMapIPV4,
+		perfMapIPV6: perfMapIPV6,
+	}, nil
+}
+
+func (t *Tracer) Stop() {
+	t.perfMapIPV4.PollStop()
+	t.perfMapIPV6.PollStop()
+}
+
 func initialize(module *bpflib.Module, eventMapName string, eventChan chan []byte) (*bpflib.PerfMap, error) {
-	if err := offsetguess.Guess(module); err != nil {
+	if err := guess(module); err != nil {
 		return nil, fmt.Errorf("error guessing offsets: %v", err)
 	}
 
@@ -37,10 +89,10 @@ func initialize(module *bpflib.Module, eventMapName string, eventChan chan []byt
 
 }
 
-func InitializeIPv4(module *bpflib.Module, eventChan chan []byte) (*bpflib.PerfMap, error) {
+func initializeIPv4(module *bpflib.Module, eventChan chan []byte) (*bpflib.PerfMap, error) {
 	return initialize(module, "tcp_event_ipv4", eventChan)
 }
 
-func InitializeIPv6(module *bpflib.Module, eventChan chan []byte) (*bpflib.PerfMap, error) {
+func initializeIPv6(module *bpflib.Module, eventChan chan []byte) (*bpflib.PerfMap, error) {
 	return initialize(module, "tcp_event_ipv6", eventChan)
 }
