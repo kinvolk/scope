@@ -70,13 +70,7 @@ func tcpEventCbV4(e tracer.TcpV4) {
 
 	lastTimestampV4 = e.Timestamp
 
-	var active bool
-	if e.Type == tracer.EventClose {
-		active = true
-	} else {
-		active = false
-	}
-	tuple := fourTuple{e.SAddr.String(), e.DAddr.String(), e.SPort, e.DPort, active}
+	tuple := fourTuple{e.SAddr.String(), e.DAddr.String(), e.SPort, e.DPort}
 	ebpfTracker.handleConnection(e.Type, tuple, int(e.Pid), strconv.Itoa(int(e.NetNS)))
 }
 
@@ -141,7 +135,6 @@ func (t *EbpfTracker) feedInitialConnections(conns procspy.ConnIter, seenTuples 
 				conn.RemoteAddress.String(),
 				conn.LocalPort,
 				conn.RemotePort,
-				true,
 			}
 		)
 
