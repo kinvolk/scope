@@ -12,7 +12,6 @@ import (
 type fourTuple struct {
 	fromAddr, toAddr string
 	fromPort, toPort uint16
-	active           bool
 }
 
 func (t fourTuple) String() string {
