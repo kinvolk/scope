@@ -139,7 +139,6 @@ func (t *connectionTracker) performFlowWalk(rpt *report.Report, seenTuples *map[
 			f.Original.Layer3.DstIP,
 			uint16(f.Original.Layer4.SrcPort),
 			uint16(f.Original.Layer4.DstPort),
-			alive,
 		}
 		// Handle DNAT-ed short-lived connections.
 		// The NAT mapper won't help since it only runs periodically,
@@ -150,7 +149,6 @@ func (t *connectionTracker) performFlowWalk(rpt *report.Report, seenTuples *map[
 				f.Reply.Layer3.SrcIP,
 				uint16(f.Reply.Layer4.DstPort),
 				uint16(f.Reply.Layer4.SrcPort),
-				alive,
 			}
 		}
 
@@ -172,7 +170,6 @@ func (t *connectionTracker) performWalkProc(rpt *report.Report, hostNodeID strin
 				conn.RemoteAddress.String(),
 				conn.LocalPort,
 				conn.RemotePort,
-				true,
 			}
 			toNodeInfo   = map[string]string{Procspied: "true"}
 			fromNodeInfo = map[string]string{Procspied: "true"}
