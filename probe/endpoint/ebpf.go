@@ -1,18 +1,14 @@
 package endpoint
 
 import (
-	"bytes"
-	"encoding/binary"
-	"net"
 	"strconv"
 	"sync"
 
 	log "github.com/Sirupsen/logrus"
-	bpflib "github.com/iovisor/gobpf/elf"
-	"github.com/kinvolk/tcptracer-bpf/pkg/byteorder"
-	"github.com/kinvolk/tcptracer-bpf/pkg/event"
 	"github.com/kinvolk/tcptracer-bpf/pkg/tracer"
 )
+
+const bpfObjectPath = "/usr/libexec/scope/ebpf/tcptracer-ebpf.o"
 
 // An ebpfConnection represents a TCP connection
 type ebpfConnection struct {
@@ -23,9 +19,8 @@ type ebpfConnection struct {
 }
 
 type eventTracker interface {
-	handleConnection(ev event.EventType, tuple fourTuple, pid int, networkNamespace string)
+	handleConnection(ev tracer.EventType, tuple fourTuple, pid int, networkNamespace string)
 	hasDied() bool
-	run()
 	walkConnections(f func(ebpfConnection))
 	initialize()
 	isInitialized() bool
@@ -38,19 +33,18 @@ var ebpfTracker *EbpfTracker
 // It is returned when the useEbpfConn flag is false.
 type nilTracker struct{}
 
-func (n nilTracker) handleConnection(_ event.EventType, _ fourTuple, _ int, _ string) {}
-func (n nilTracker) hasDied() bool                                                    { return true }
-func (n nilTracker) run()                                                             {}
-func (n nilTracker) walkConnections(f func(ebpfConnection))                           {}
-func (n nilTracker) initialize()                                                      {}
-func (n nilTracker) isInitialized() bool                                              { return false }
-func (n nilTracker) stop()                                                            {}
+func (n nilTracker) handleConnection(_ tracer.EventType, _ fourTuple, _ int, _ string) {}
+func (n nilTracker) hasDied() bool                                                     { return true }
+func (n nilTracker) walkConnections(f func(ebpfConnection))                            {}
+func (n nilTracker) initialize()                                                       {}
+func (n nilTracker) isInitialized() bool                                               { return false }
+func (n nilTracker) stop()                                                             {}
 
 // EbpfTracker contains the sets of open and closed TCP connections.
 // Closed connections are kept in the `closedConnections` slice for one iteration of `walkConnections`.
 type EbpfTracker struct {
 	sync.Mutex
-	reader      *bpflib.Module
+	tracer      *tracer.Tracer
 	initialized bool
 	dead        bool
 
@@ -63,44 +57,52 @@ func newEbpfTracker(useEbpfConn bool) eventTracker {
 		return &nilTracker{}
 	}
 
-	bpfObjectFile, err := findBpfObjectFile()
+	t, err := tracer.NewTracerFromFile(bpfObjectPath, tcpEventCbV4, tcpEventCbV6)
 	if err != nil {
-		log.Errorf("Cannot find BPF object file: %v", err)
-		return &nilTracker{}
-	}
-
-	bpfPerfEvent := bpflib.NewModule(bpfObjectFile)
-	if bpfPerfEvent == nil {
-		return &nilTracker{}
-	}
-	if err := bpfPerfEvent.Load(); err != nil {
-		log.Errorf("Error loading BPF program: %v", err)
-		return &nilTracker{}
-	}
-
-	if err := bpfPerfEvent.EnableKprobes(); err != nil {
-		log.Errorf("Error enabling kprobes: %v", err)
+		log.Errorf("Couldn't start ebpf tracer: %v", err)
 		return &nilTracker{}
 	}
 
 	tracker := &EbpfTracker{
 		openConnections: map[string]ebpfConnection{},
-		reader:          bpfPerfEvent,
+		tracer:          t,
 	}
-	tracker.run()
 
 	ebpfTracker = tracker
 	return tracker
 }
 
-func (t *EbpfTracker) handleConnection(ev event.EventType, tuple fourTuple, pid int, networkNamespace string) {
+var lastTimestampV4 uint64
+
+func tcpEventCbV4(e tracer.TcpV4) {
+	if lastTimestampV4 > e.Timestamp {
+		log.Errorf("ERROR: late event!\n")
+	}
+
+	lastTimestampV4 = e.Timestamp
+
+	var active bool
+	if e.Type == tracer.EventClose {
+		active = true
+	} else {
+		active = false
+	}
+	tuple := fourTuple{e.SAddr.String(), e.DAddr.String(), e.SPort, e.DPort, active}
+	ebpfTracker.handleConnection(e.Type, tuple, int(e.Pid), strconv.Itoa(int(e.NetNS)))
+}
+
+func tcpEventCbV6(e tracer.TcpV6) {
+	// TODO: IPv6 not supported in Scope
+}
+
+func (t *EbpfTracker) handleConnection(ev tracer.EventType, tuple fourTuple, pid int, networkNamespace string) {
 	t.Lock()
 	defer t.Unlock()
 	log.Debugf("handleConnection(%v, [%v:%v --> %v:%v], pid=%v, netNS=%v)",
 		ev, tuple.fromAddr, tuple.fromPort, tuple.toAddr, tuple.toPort, pid, networkNamespace)
 
 	switch ev {
-	case event.EventConnect:
+	case tracer.EventConnect:
 		conn := ebpfConnection{
 			incoming:         false,
 			tuple:            tuple,
@@ -108,7 +110,7 @@ func (t *EbpfTracker) handleConnection(ev event.EventType, tuple fourTuple, pid 
 			networkNamespace: networkNamespace,
 		}
 		t.openConnections[tuple.String()] = conn
-	case event.EventAccept:
+	case tracer.EventAccept:
 		conn := ebpfConnection{
 			incoming:         true,
 			tuple:            tuple,
@@ -116,7 +118,7 @@ func (t *EbpfTracker) handleConnection(ev event.EventType, tuple fourTuple, pid 
 			networkNamespace: networkNamespace,
 		}
 		t.openConnections[tuple.String()] = conn
-	case event.EventClose:
+	case tracer.EventClose:
 		if deadConn, ok := t.openConnections[tuple.String()]; ok {
 			delete(t.openConnections, tuple.String())
 			t.closedConnections = append(t.closedConnections, deadConn)
@@ -124,35 +126,6 @@ func (t *EbpfTracker) handleConnection(ev event.EventType, tuple fourTuple, pid 
 			log.Errorf("EbpfTracker error: unmatched close event: %s pid=%d netns=%s", tuple.String(), pid, networkNamespace)
 		}
 	}
-}
-
-func tcpEventCallback(ev event.Tcp) {
-	var active bool
-	typ := event.EventType(ev.Type)
-	pid := ev.Pid & 0xffffffff
-
-	saddrbuf := make([]byte, 4)
-	daddrbuf := make([]byte, 4)
-
-	byteorder.Host.PutUint32(saddrbuf, uint32(ev.SAddr))
-	byteorder.Host.PutUint32(daddrbuf, uint32(ev.DAddr))
-
-	sIP := net.IPv4(saddrbuf[0], saddrbuf[1], saddrbuf[2], saddrbuf[3])
-	dIP := net.IPv4(daddrbuf[0], daddrbuf[1], daddrbuf[2], daddrbuf[3])
-
-	sport := ev.SPort
-	dport := ev.DPort
-
-	if typ == event.EventClose {
-		active = true
-	} else {
-		active = false
-	}
-	tuple := fourTuple{sIP.String(), dIP.String(), uint16(sport), uint16(dport), active}
-
-	log.Debugf("tcpEventCallback(%v, [%v:%v --> %v:%v], pid=%v, netNS=%v, cpu=%v, ts=%v)",
-		typ.String(), tuple.fromAddr, tuple.fromPort, tuple.toAddr, tuple.toPort, pid, ev.NetNS, ev.CPU, ev.Timestamp)
-	ebpfTracker.handleConnection(typ, tuple, int(pid), strconv.FormatUint(uint64(ev.NetNS), 10))
 }
 
 // walkConnections calls f with all open connections and connections that have come and gone
@@ -168,36 +141,6 @@ func (t *EbpfTracker) walkConnections(f func(ebpfConnection)) {
 		f(connection)
 	}
 	t.closedConnections = t.closedConnections[:0]
-}
-
-func (t *EbpfTracker) run() {
-	channel := make(chan []byte)
-
-	go func() {
-		var ev event.Tcp
-		for {
-			data := <-channel
-			err := binary.Read(bytes.NewBuffer(data), byteorder.Host, &ev)
-			if err != nil {
-				log.Errorf("Failed to decode received data: %s\n", err)
-				continue
-			}
-			tcpEventCallback(ev)
-		}
-	}()
-
-	perfMap, err := tracer.InitializeIPv4(t.reader, channel)
-	if err != nil {
-		log.Errorf("%v\n", err)
-		return
-	}
-
-	perfMap.SetTimestampFunc(func(data *[]byte) (ts uint64) {
-		_ = binary.Read(bytes.NewBuffer(*data), byteorder.Host, &ts)
-		return
-	})
-
-	perfMap.PollStart()
 }
 
 func (t *EbpfTracker) hasDied() bool {
