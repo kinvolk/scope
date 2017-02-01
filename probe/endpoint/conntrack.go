@@ -160,7 +160,7 @@ func logPipe(prefix string, reader io.Reader) {
 func (c *conntrackWalker) run() {
 	// Fork another conntrack, just to capture existing connections
 	// for which we don't get events
-	existingFlows, err := c.existingConnections()
+	existingFlows, err := existingConnections(c.args)
 	if err != nil {
 		log.Errorf("conntrack existingConnections error: %v", err)
 		return
@@ -354,8 +354,8 @@ func decodeStreamedFlow(scanner *bufio.Scanner) (flow, error) {
 	return f, nil
 }
 
-func (c *conntrackWalker) existingConnections() ([]flow, error) {
-	args := append([]string{"-L", "-o", "id", "-p", "tcp"}, c.args...)
+func existingConnections(conntrackWalkerArgs []string) ([]flow, error) {
+	args := append([]string{"-L", "-o", "id", "-p", "tcp"}, conntrackWalkerArgs...)
 	cmd := exec.Command("conntrack", args...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
