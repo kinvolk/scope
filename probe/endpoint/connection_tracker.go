@@ -50,6 +50,32 @@ func newConnectionTracker(conf connectionTrackerConfig) connectionTracker {
 		// do a single run of conntrack and proc parsing and feed to ebpf the data.
 		// we can use scanner = procspy.NewSyncConnectionScanner(processCache)
 		// or we need to write our conntrack and proc parser
+		fw := newConntrackFlowWalker(conf.UseConntrack, conf.ProcRoot, conf.BufferSize)
+		seenTuples := map[string]fourTuple{}
+		// Consult the flowWalker to get the initial state
+		fw.walkFlows(func(f flow, active bool) {
+			tuple := fourTuple{
+				f.Original.Layer3.SrcIP,
+				f.Original.Layer3.DstIP,
+				uint16(f.Original.Layer4.SrcPort),
+				uint16(f.Original.Layer4.DstPort),
+				active,
+			}
+			// Handle DNAT-ed connections in the initial states.
+			if f.Original.Layer3.DstIP != f.Reply.Layer3.SrcIP {
+				tuple = fourTuple{
+					f.Reply.Layer3.DstIP,
+					f.Reply.Layer3.SrcIP,
+					uint16(f.Reply.Layer4.DstPort),
+					uint16(f.Reply.Layer4.SrcPort),
+					active,
+				}
+			}
+
+			seenTuples[tuple.key()] = tuple
+		})
+		fw.stop()
+
 		var processCache *process.CachingWalker
 		var scanner procspy.ConnectionScanner
 		processCache = process.NewCachingWalker(process.NewWalker(conf.ProcRoot))
@@ -58,8 +84,10 @@ func newConnectionTracker(conf connectionTrackerConfig) connectionTracker {
 		conns, err := scanner.Connections(conf.SpyProcs)
 		if err != nil {
 			log.Errorf("Error initializing ebpfTracker while scanning /proc, continue without initial connections: %s", err)
+			et.initializeBlank()
+		} else {
+			et.initialize(conns, seenTuples, report.MakeHostNodeID(conf.HostID))
 		}
-		et.initialize(conns, newConntrackFlowWalker(conf.UseConntrack, conf.ProcRoot, conf.BufferSize), report.MakeHostNodeID(conf.HostID))
 		ct := connectionTracker{
 			conf:            conf,
 			flowWalker:      nil,
@@ -67,6 +95,7 @@ func newConnectionTracker(conf connectionTrackerConfig) connectionTracker {
 			reverseResolver: newReverseResolver(),
 		}
 		scanner.Stop()
+		et.run()
 		return ct
 	}
 	// ebpf OFF, use flowWalker

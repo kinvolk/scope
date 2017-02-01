@@ -29,7 +29,8 @@ type eventTracker interface {
 	hasDied() bool
 	run()
 	walkConnections(f func(ebpfConnection))
-	initialize(ci procspy.ConnIter, fw flowWalker, hostNodeID string)
+	initialize(ci procspy.ConnIter, seenTuples map[string]fourTuple, hostNodeID string)
+	initializeBlank()
 	isInitialized() bool
 	stop()
 }
@@ -197,33 +198,7 @@ func (t *EbpfTracker) hasDied() bool {
 	return t.dead
 }
 
-func (t *EbpfTracker) initialize(conns procspy.ConnIter, fw flowWalker, hostNodeID string) {
-
-	seenTuples := map[string]fourTuple{}
-	// Consult the flowWalker to get the initial state
-	fw.walkFlows(func(f flow, active bool) {
-		tuple := fourTuple{
-			f.Original.Layer3.SrcIP,
-			f.Original.Layer3.DstIP,
-			uint16(f.Original.Layer4.SrcPort),
-			uint16(f.Original.Layer4.DstPort),
-			active,
-		}
-		// Handle DNAT-ed connections in the initial states.
-		if f.Original.Layer3.DstIP != f.Reply.Layer3.SrcIP {
-			tuple = fourTuple{
-				f.Reply.Layer3.DstIP,
-				f.Reply.Layer3.SrcIP,
-				uint16(f.Reply.Layer4.DstPort),
-				uint16(f.Reply.Layer4.SrcPort),
-				active,
-			}
-		}
-
-		seenTuples[tuple.key()] = tuple
-	})
-	fw.stop()
-
+func (t *EbpfTracker) initialize(conns procspy.ConnIter, seenTuples map[string]fourTuple, hostNodeID string) {
 	for conn := conns.Next(); conn != nil; conn = conns.Next() {
 		var (
 			namespaceID string
@@ -250,6 +225,10 @@ func (t *EbpfTracker) initialize(conns procspy.ConnIter, fw flowWalker, hostNode
 		}
 
 	}
+	t.initialized = true
+}
+
+func (t *EbpfTracker) initializeBlank() {
 	t.initialized = true
 }
 
