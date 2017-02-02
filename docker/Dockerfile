@@ -5,8 +5,6 @@ WORKDIR /home/weave
 RUN apk add --update bash runit conntrack-tools iproute2 util-linux curl && \
 	rm -rf /var/cache/apk/*
 ADD ./docker.tgz /
-ADD ./tcptracer-ebpf.o /usr/libexec/scope/ebpf/
-ADD ./tcptracer-ebpf.version /usr/libexec/scope/ebpf/
 ADD ./demo.json /
 ADD ./weave /usr/bin/
 COPY ./scope ./runsvinit ./entrypoint.sh /home/weave/
