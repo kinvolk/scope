@@ -1018,10 +1018,10 @@
 		},
 		{
 			"importpath": "github.com/iovisor/gobpf/elf",
-			"repository": "https://github.com/iovisor/gobpf",
+			"repository": "https://github.com/kinvolk/gobpf",
 			"vcs": "git",
-			"revision": "a67ade2bfcc4aee4e2725c23fb89335f672560bd",
-			"branch": "master",
+			"revision": "89534efc9fe06b2f314fbbcbaa0b18524ca9c493",
+			"branch": "alban/go-bindata2",
 			"path": "/elf",
 			"notests": true
 		},
@@ -1043,8 +1043,8 @@
 			"importpath": "github.com/kinvolk/tcptracer-bpf",
 			"repository": "https://github.com/kinvolk/tcptracer-bpf",
 			"vcs": "git",
-			"revision": "536ba3c01d43deeed3904ca5958c2cbd63d13813",
-			"branch": "iaguis/tcptracer-bpf",
+			"revision": "b7f49495cd4464a2008a1bf2eb4d5c8d428c8a33",
+			"branch": "alban/go-bindata",
 			"notests": true
 		},
 		{
