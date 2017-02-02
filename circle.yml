@@ -68,8 +68,6 @@ test:
         parallel: true
     - test "$CIRCLE_NODE_INDEX" != "0" || (cd $SRCDIR; cp scope.tar $CIRCLE_ARTIFACTS):
         parallel: true
-    - cd $SRCDIR; ./extras/ebpf-version:
-        parallel: true
 
 deployment:
   hub:
