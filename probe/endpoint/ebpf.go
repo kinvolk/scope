@@ -10,8 +10,6 @@ import (
 	"github.com/weaveworks/scope/probe/endpoint/procspy"
 )
 
-const bpfObjectPath = "/usr/libexec/scope/ebpf/tcptracer-ebpf.o"
-
 // An ebpfConnection represents a TCP connection
 type ebpfConnection struct {
 	tuple            fourTuple
@@ -48,7 +46,7 @@ func newEbpfTracker(useEbpfConn bool) (eventTracker, error) {
 		return nil, errors.New("ebpf tracker not enabled")
 	}
 
-	t, err := tracer.NewTracerFromFile(bpfObjectPath, tcpEventCbV4, tcpEventCbV6)
+	t, err := tracer.NewTracer(tcpEventCbV4, tcpEventCbV6)
 	if err != nil {
 		log.Errorf("Cannot find BPF object file: %v", err)
 		return nil, err
