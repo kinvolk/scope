@@ -1043,7 +1043,7 @@
 			"importpath": "github.com/kinvolk/tcptracer-bpf",
 			"repository": "https://github.com/kinvolk/tcptracer-bpf",
 			"vcs": "git",
-			"revision": "f7bace8f8ddae7165952b903bb5cb33d90695795",
+			"revision": "536ba3c01d43deeed3904ca5958c2cbd63d13813",
 			"branch": "iaguis/tcptracer-bpf",
 			"notests": true
 		},
