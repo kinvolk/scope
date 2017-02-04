@@ -27,9 +27,7 @@ GO_BUILD_INSTALL_DEPS=-i
 GO_BUILD_TAGS='netgo unsafe'
 GO_BUILD_FLAGS=$(GO_BUILD_INSTALL_DEPS) -ldflags "-extldflags \"-static\" -X main.version=$(SCOPE_VERSION) -s -w" -tags $(GO_BUILD_TAGS)
 GOOS=$(shell go tool dist env | grep GOOS | sed -e 's/GOOS="\(.*\)"/\1/')
-# TODO: update this to weaveworks/tcptracer-bpf:master when
-# https://github.com/weaveworks/tcptracer-bpf/pull/1 gets merged
-EBPF_ARTIFACT_URL='https://circleci.com/api/v1/project/kinvolk/tcptracer-bpf/latest/artifacts/0/$$CIRCLE_ARTIFACTS/tcptracer-ebpf.o?branch=iaguis/tcptracer-bpf&filter=successful'
+EBPF_ARTIFACT_URL='https://circleci.com/api/v1/project/weaveworks/tcptracer-bpf/2/artifacts/0/$$CIRCLE_ARTIFACTS/tcptracer-ebpf.o'
 
 
 ifeq ($(GOOS),linux)
