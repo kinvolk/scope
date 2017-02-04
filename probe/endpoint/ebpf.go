@@ -6,8 +6,8 @@ import (
 	"sync"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/kinvolk/tcptracer-bpf/pkg/tracer"
 	"github.com/weaveworks/scope/probe/endpoint/procspy"
+	"github.com/weaveworks/tcptracer-bpf/pkg/tracer"
 )
 
 const bpfObjectPath = "/usr/libexec/scope/ebpf/tcptracer-ebpf.o"

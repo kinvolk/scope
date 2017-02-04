@@ -996,14 +996,6 @@
 			"branch": "master"
 		},
 		{
-			"importpath": "github.com/kinvolk/tcptracer-bpf",
-			"repository": "https://github.com/kinvolk/tcptracer-bpf",
-			"vcs": "git",
-			"revision": "536ba3c01d43deeed3904ca5958c2cbd63d13813",
-			"branch": "iaguis/tcptracer-bpf",
-			"notests": true
-		},
-		{
 			"importpath": "github.com/kr/pretty",
 			"repository": "https://github.com/kr/pretty",
 			"vcs": "git",
@@ -1411,6 +1403,14 @@
 			"repository": "https://github.com/weaveworks/ps",
 			"vcs": "git",
 			"revision": "70d17b2d6f760345ef36a0748751eddf7290a92c",
+			"branch": "master",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/weaveworks/tcptracer-bpf",
+			"repository": "https://github.com/weaveworks/tcptracer-bpf",
+			"vcs": "git",
+			"revision": "39d3cee70249449b4ce49cdedf64b2337a161ab2",
 			"branch": "master",
 			"notests": true
 		},
