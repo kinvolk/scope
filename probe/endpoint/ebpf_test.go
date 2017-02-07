@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/kinvolk/tcptracer-bpf/pkg/tracer"
+	"github.com/weaveworks/tcptracer-bpf/pkg/tracer"
 )
 
 func TestHandleConnection(t *testing.T) {
