@@ -15,10 +15,18 @@ type Tracer struct {
 	perfMapIPV6 *bpflib.PerfMap
 }
 
+func TracerAsset() ([]byte, error) {
+	buf, err := Asset("tcptracer-ebpf.o")
+	if err != nil {
+		return nil, fmt.Errorf("couldn't find asset: %s", err)
+	}
+	return buf, nil
+}
+
 func NewTracer(tcpEventCbV4 func(TcpV4), tcpEventCbV6 func(TcpV6)) (*Tracer, error) {
 	buf, err := Asset("tcptracer-ebpf.o")
 	if err != nil {
-		return nil, fmt.Errorf("couldn't find asset: %s\n", err)
+		return nil, fmt.Errorf("couldn't find asset: %s", err)
 	}
 	reader := bytes.NewReader(buf)
 
