@@ -1040,14 +1040,6 @@
 			"branch": "master"
 		},
 		{
-			"importpath": "github.com/kinvolk/tcptracer-bpf",
-			"repository": "https://github.com/kinvolk/tcptracer-bpf",
-			"vcs": "git",
-			"revision": "b7f49495cd4464a2008a1bf2eb4d5c8d428c8a33",
-			"branch": "alban/go-bindata",
-			"notests": true
-		},
-		{
 			"importpath": "github.com/kr/pretty",
 			"repository": "https://github.com/kr/pretty",
 			"vcs": "git",
@@ -1455,6 +1447,14 @@
 			"repository": "https://github.com/weaveworks/ps",
 			"vcs": "git",
 			"revision": "70d17b2d6f760345ef36a0748751eddf7290a92c",
+			"branch": "master",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/weaveworks/tcptracer-bpf",
+			"repository": "https://github.com/weaveworks/tcptracer-bpf",
+			"vcs": "git",
+			"revision": "e8ea19b70513401d52360e9878b4bcea5e0217a3",
 			"branch": "master",
 			"notests": true
 		},
