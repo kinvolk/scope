@@ -45,7 +45,6 @@ prog/scope
 docker/scope
 docker/docker.tgz
 docker/docker
-docker/ebpf.tgz
 docker/weave
 docker/weaveutil
 docker/runsvinit
