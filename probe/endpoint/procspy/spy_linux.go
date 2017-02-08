@@ -45,7 +45,7 @@ func NewSyncConnectionScanner(walker process.Walker) ConnectionScanner {
 }
 
 type linuxScanner struct {
-	br *backgroundReader
+	br reader
 }
 
 func (s *linuxScanner) Connections(processes bool) (ConnIter, error) {
