@@ -40,12 +40,12 @@ func NewConnectionScanner(walker process.Walker) ConnectionScanner {
 
 // NewSyncConnectionScanner creates a new synchronous Linux ConnectionScanner
 func NewSyncConnectionScanner(walker process.Walker) ConnectionScanner {
-	br := newForegroundReader(walker)
-	return &linuxScanner{br}
+	fr := newForegroundReader(walker)
+	return &linuxScanner{fr}
 }
 
 type linuxScanner struct {
-	br *backgroundReader
+	r reader
 }
 
 func (s *linuxScanner) Connections(processes bool) (ConnIter, error) {
@@ -56,7 +56,7 @@ func (s *linuxScanner) Connections(processes bool) (ConnIter, error) {
 	var procs map[uint64]*Proc
 	if processes {
 		var err error
-		if procs, err = s.br.getWalkedProcPid(buf); err != nil {
+		if procs, err = s.r.getWalkedProcPid(buf); err != nil {
 			return nil, err
 		}
 	}
@@ -74,5 +74,5 @@ func (s *linuxScanner) Connections(processes bool) (ConnIter, error) {
 }
 
 func (s *linuxScanner) Stop() {
-	s.br.stop()
+	s.r.stop()
 }
