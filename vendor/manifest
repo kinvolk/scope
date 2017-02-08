@@ -1454,7 +1454,7 @@
 			"importpath": "github.com/weaveworks/tcptracer-bpf",
 			"repository": "https://github.com/weaveworks/tcptracer-bpf",
 			"vcs": "git",
-			"revision": "e8ea19b70513401d52360e9878b4bcea5e0217a3",
+			"revision": "44ec0f8882d25f0e258ab12161ad817de5233e7f",
 			"branch": "master",
 			"notests": true
 		},
