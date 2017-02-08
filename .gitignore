@@ -43,7 +43,6 @@ scope.tar
 prog/scope
 docker/scope
 docker/docker.tgz
-docker/ebpf.tgz
 docker/weave
 docker/runsvinit
 extras/fixprobe/fixprobe
