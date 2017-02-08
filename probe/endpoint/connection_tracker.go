@@ -200,12 +200,10 @@ func (t *connectionTracker) performWalkProc(rpt *report.Report, hostNodeID strin
 func (t *connectionTracker) performEbpfTrack(rpt *report.Report, hostNodeID string) error {
 	t.ebpfTracker.walkConnections(func(e ebpfConnection) {
 		fromNodeInfo := map[string]string{
-			Procspied: "true",
-			EBPF:      "true",
+			EBPF: "true",
 		}
 		toNodeInfo := map[string]string{
-			Procspied: "true",
-			EBPF:      "true",
+			EBPF: "true",
 		}
 		if e.pid > 0 {
 			fromNodeInfo[process.PID] = strconv.Itoa(e.pid)
