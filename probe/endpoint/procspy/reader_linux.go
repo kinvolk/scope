@@ -105,7 +105,6 @@ func (br *backgroundReader) loop(walker process.Walker) {
 
 type foregroundReader struct {
 	stopc         chan struct{}
-	mtx           sync.Mutex
 	latestBuf     *bytes.Buffer
 	latestSockets map[uint64]*Proc
 }
@@ -125,10 +124,8 @@ func newForegroundReader(walker process.Walker) reader {
 	go performWalk(pWalker, walkc)
 
 	result := <-walkc
-	fr.mtx.Lock()
 	fr.latestBuf = result.buf
 	fr.latestSockets = result.sockets
-	fr.mtx.Unlock()
 
 	return fr
 }
@@ -138,9 +135,6 @@ func (br *foregroundReader) stop() {
 }
 
 func (br *foregroundReader) getWalkedProcPid(buf *bytes.Buffer) (map[uint64]*Proc, error) {
-	br.mtx.Lock()
-	defer br.mtx.Unlock()
-
 	// Don't access latestBuf directly but create a reader. In this way,
 	// the buffer will not be empty in the next call of getWalkedProcPid
 	// and it can be copied again.
