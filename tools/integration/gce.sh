@@ -9,7 +9,7 @@ set -e
 
 : "${KEY_FILE:=/tmp/gce_private_key.json}"
 : "${SSH_KEY_FILE:=$HOME/.ssh/gce_ssh_key}"
-: "${IMAGE:=ubuntu-14-04}"
+: "${IMAGE:=ubuntu-1604-xenial-v20170202}"
 : "${USER_ACCOUNT:=ubuntu}"
 : "${ZONE:=us-central1-a}"
 : "${PROJECT:=}"
