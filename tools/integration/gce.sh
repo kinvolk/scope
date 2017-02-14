@@ -13,7 +13,7 @@ set -e
 : "${USER_ACCOUNT:=ubuntu}"
 : "${ZONE:=us-central1-a}"
 : "${PROJECT:=}"
-: "${TEMPLATE_NAME:=template-scope-integration-schu}"
+: "${TEMPLATE_NAME:=}"
 : "${NUM_HOSTS:=}"
 
 if [ -z "${PROJECT}" ] || [ -z "${NUM_HOSTS}" ] || [ -z "${TEMPLATE_NAME}" ]; then
