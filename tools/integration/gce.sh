@@ -91,6 +91,7 @@ function install_docker_on() {
     ssh -t "$name" sudo bash -x -s <<EOF
 set -x
 set -e
+uname -a
 apt-get update -qq
 apt-get install -q -y --force-yes --no-install-recommends \
   apt-transport-https \
