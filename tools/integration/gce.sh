@@ -9,7 +9,7 @@ set -e
 
 : "${KEY_FILE:=/tmp/gce_private_key.json}"
 : "${SSH_KEY_FILE:=$HOME/.ssh/gce_ssh_key}"
-: "${IMAGE:=ubuntu-1604-xenial-v20170202}"
+: "${IMAGE:=ubuntu-1604-lts}"
 : "${USER_ACCOUNT:=ubuntu}"
 : "${ZONE:=us-central1-a}"
 : "${PROJECT:=}"
@@ -144,7 +144,7 @@ function setup() {
 }
 
 function make_template() {
-    gcloud compute instances create "$TEMPLATE_NAME" --image "$IMAGE" --zone "$ZONE"
+    gcloud compute instances create "$TEMPLATE_NAME" --image-family="$IMAGE" --image-project=ubuntu-os-cloud --zone "$ZONE"
     gcloud compute config-ssh --ssh-key-file "$SSH_KEY_FILE"
     name="$TEMPLATE_NAME.$ZONE.$PROJECT"
     try_connect "$name"
