@@ -91,12 +91,36 @@ function install_docker_on() {
     ssh -t "$name" sudo bash -x -s <<EOF
 set -x
 set -e
-curl -sSL https://get.docker.com/gpg | sudo apt-key add -
-curl -sSL https://get.docker.com/ | sh
-apt-get update -qq;
-apt-get install -q -y --force-yes --no-install-recommends ethtool;
-usermod -a -G docker "${USER_ACCOUNT}";
-echo 'DOCKER_OPTS="-H unix:///var/run/docker.sock -H unix:///var/run/alt-docker.sock -H tcp://0.0.0.0:2375 -s overlay"' >> /etc/default/docker;
+apt-get update -qq
+apt-get install -q -y --force-yes --no-install-recommends \
+  apt-transport-https \
+  ca-certificates \
+  curl \
+  software-properties-common \
+  ethtool
+curl -fsSL https://apt.dockerproject.org/gpg | sudo apt-key add -
+add-apt-repository "deb https://apt.dockerproject.org/repo/ ubuntu-\$(lsb_release -cs) main"
+apt-get update -qq
+apt-get install -q -y docker-engine
+usermod -a -G docker "${USER_ACCOUNT}"
+  cat << DOCKER >/etc/docker/daemon.json
+{
+  "hosts": [
+    "unix:///var/run/docker.sock",
+    "unix:///var/run/alt-docker.sock",
+    "tcp://0.0.0.0:2375",
+    "fd://"
+  ],
+  "storage-driver": "overlay"
+}
+DOCKER
+mkdir -p /etc/systemd/system/docker.service.d
+  cat << DOCKER >/etc/systemd/system/docker.service.d/dockerd-start.conf
+[Service]
+ExecStart=
+ExecStart=/usr/bin/dockerd
+DOCKER
+systemctl daemon-reload
 service docker restart
 EOF
     # It seems we need a short delay for docker to start up, so I put this in
