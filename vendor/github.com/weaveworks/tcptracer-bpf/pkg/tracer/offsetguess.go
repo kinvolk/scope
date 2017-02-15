@@ -33,21 +33,23 @@ const (
 	thresholdInetSock = 2000
 )
 
+// These constants should be in sync with the equivalent definitions in the ebpf program.
 const (
-	stateUninitialized C.__u64 = iota
-	stateChecking              // status set by userspace, waiting for eBPF
-	stateChecked               // status set by eBPF, waiting for userspace
-	stateReady                 // fully initialized, all offset known
+	stateUninitialized C.__u64 = 0
+	stateChecking              = 1 // status set by userspace, waiting for eBPF
+	stateChecked               = 2 // status set by eBPF, waiting for userspace
+	stateReady                 = 3 // fully initialized, all offset known
 )
 
+// These constants should be in sync with the equivalent definitions in the ebpf program.
 const (
-	guessSaddr C.__u64 = iota
-	guessDaddr
-	guessFamily
-	guessSport
-	guessDport
-	guessNetns
-	guessDaddrIPv6
+	guessSaddr     C.__u64 = 0
+	guessDaddr             = 1
+	guessFamily            = 2
+	guessSport             = 3
+	guessDport             = 4
+	guessNetns             = 5
+	guessDaddrIPv6         = 6
 )
 
 const listenIP = "127.0.0.2"
@@ -158,7 +160,7 @@ func tryCurrentOffset(module *elf.Module, mp *elf.Map, status *tcpTracerStatus, 
 		stop <- struct{}{}
 		conn, err := net.Dial("tcp4", bindAddress)
 		if err != nil {
-			return fmt.Errorf("error dialing %q: %v\n", bindAddress, err)
+			return fmt.Errorf("error dialing %q: %v", bindAddress, err)
 		}
 
 		// get the source port assigned by the kernel
