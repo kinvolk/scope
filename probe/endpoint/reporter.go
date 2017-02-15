@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/weaveworks/scope/probe/endpoint/procspy"
 	"github.com/weaveworks/scope/report"
 )
 
@@ -21,16 +20,11 @@ const (
 
 // ReporterConfig are the config options for the endpoint reporter.
 type ReporterConfig struct {
-	HostID       string
-	HostName     string
-	SpyProcs     bool
-	UseConntrack bool
-	WalkProc     bool
-	UseEbpfConn  bool
-	ProcRoot     string
-	BufferSize   int
-	Scanner      procspy.ConnectionScanner
-	DNSSnooper   *DNSSnooper
+	HostID                  string
+	ProcRoot                string
+	BufferSize              int
+	UseConntrack            bool
+	ConnectionTrackerConfig ConnectionTrackerConfig
 }
 
 // Reporter generates Reports containing the Endpoint topology.
@@ -59,20 +53,9 @@ var SpyDuration = prometheus.NewSummaryVec(
 // with process (PID) information.
 func NewReporter(conf ReporterConfig) *Reporter {
 	return &Reporter{
-		conf: conf,
-		connectionTracker: newConnectionTracker(connectionTrackerConfig{
-			HostID:       conf.HostID,
-			HostName:     conf.HostName,
-			SpyProcs:     conf.SpyProcs,
-			UseConntrack: conf.UseConntrack,
-			WalkProc:     conf.WalkProc,
-			UseEbpfConn:  conf.UseEbpfConn,
-			ProcRoot:     conf.ProcRoot,
-			BufferSize:   conf.BufferSize,
-			Scanner:      conf.Scanner,
-			DNSSnooper:   conf.DNSSnooper,
-		}),
-		natMapper: makeNATMapper(newConntrackFlowWalker(conf.UseConntrack, conf.ProcRoot, conf.BufferSize, "--any-nat")),
+		conf:              conf,
+		connectionTracker: newConnectionTracker(conf.ConnectionTrackerConfig),
+		natMapper:         makeNATMapper(newConntrackFlowWalker(conf.UseConntrack, conf.ProcRoot, conf.BufferSize, "--any-nat")),
 	}
 }
 
@@ -83,7 +66,6 @@ func (Reporter) Name() string { return "Endpoint" }
 func (r *Reporter) Stop() {
 	r.connectionTracker.Stop()
 	r.natMapper.stop()
-	r.conf.Scanner.Stop()
 }
 
 // Report implements Reporter.

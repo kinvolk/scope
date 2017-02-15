@@ -9,10 +9,9 @@ import (
 	"github.com/weaveworks/scope/report"
 )
 
-// connectionTrackerConfig are the config options for the endpoint tracker.
-type connectionTrackerConfig struct {
+// ConnectionTrackerConfig are the config options for the endpoint tracker.
+type ConnectionTrackerConfig struct {
 	HostID       string
-	HostName     string
 	SpyProcs     bool
 	UseConntrack bool
 	WalkProc     bool
@@ -21,16 +20,17 @@ type connectionTrackerConfig struct {
 	BufferSize   int
 	Scanner      procspy.ConnectionScanner
 	DNSSnooper   *DNSSnooper
+	ProcessCache *process.CachingWalker
 }
 
 type connectionTracker struct {
-	conf            connectionTrackerConfig
+	conf            ConnectionTrackerConfig
 	flowWalker      flowWalker // Interface
 	ebpfTracker     eventTracker
 	reverseResolver *reverseResolver
 }
 
-func newConnectionTracker(conf connectionTrackerConfig) connectionTracker {
+func newConnectionTracker(conf ConnectionTrackerConfig) connectionTracker {
 	if !conf.UseEbpfConn {
 		// ebpf OFF, use flowWalker
 		return connectionTracker{
@@ -44,14 +44,16 @@ func newConnectionTracker(conf connectionTrackerConfig) connectionTracker {
 	et, err := newEbpfTracker(conf.UseEbpfConn)
 	if err != nil {
 		// TODO: fallback to flowWalker, when ebpf is enabled by default
-		log.Errorf("Error setting up the ebpfTracker, connections will not be reported: %s", err)
-		noopConnectionTracker := connectionTracker{
+		log.Errorf("Error setting up the ebpfTracker, fallback to /proc parsing: %s", err)
+		return connectionTracker{
 			conf:            conf,
-			flowWalker:      nil,
+			flowWalker:      newConntrackFlowWalker(conf.UseConntrack, conf.ProcRoot, conf.BufferSize, "--any-nat"),
 			ebpfTracker:     nil,
-			reverseResolver: nil,
+			reverseResolver: newReverseResolver(),
 		}
-		return noopConnectionTracker
+	} else if conf.WalkProc {
+		// ebpf started correctly, we do not need the scanner
+		conf.Scanner.Stop()
 	}
 	// Run conntrack and proc parsing synchronously only once to initialize ebpfTracker
 	seenTuples := map[string]fourTuple{}
@@ -254,5 +256,6 @@ func (t *connectionTracker) Stop() error {
 		t.flowWalker.stop()
 	}
 	t.reverseResolver.stop()
+	t.conf.Scanner.Stop()
 	return nil
 }

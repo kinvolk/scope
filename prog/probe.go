@@ -161,10 +161,10 @@ func probeMain(flags probeFlags, targets []appclient.Target) {
 	var scanner procspy.ConnectionScanner
 	if flags.procEnabled {
 		processCache = process.NewCachingWalker(process.NewWalker(flags.procRoot))
-		// The eBPF tracker finds connections itself and does not need the connection scanner
-		if !flags.useEbpfConn {
-			scanner = procspy.NewConnectionScanner(processCache)
-		}
+		// Although, the eBPF tracker finds connections itself and does not need the connection scanner
+		// We create one to fallback in case the eBPF tracker fails to start
+		// connectionTracker takes care of stopping the scanner
+		scanner = procspy.NewConnectionScanner(processCache)
 		p.AddTicker(processCache)
 		p.AddReporter(process.NewReporter(processCache, hostID, process.GetDeltaTotalJiffies))
 	}
@@ -178,15 +178,20 @@ func probeMain(flags probeFlags, targets []appclient.Target) {
 
 	endpointReporter := endpoint.NewReporter(endpoint.ReporterConfig{
 		HostID:       hostID,
-		HostName:     hostName,
-		SpyProcs:     flags.spyProcs,
 		UseConntrack: flags.useConntrack,
-		WalkProc:     flags.procEnabled,
-		UseEbpfConn:  flags.useEbpfConn,
 		ProcRoot:     flags.procRoot,
 		BufferSize:   flags.conntrackBufferSize,
-		Scanner:      scanner,
-		DNSSnooper:   dnsSnooper,
+		ConnectionTrackerConfig: endpoint.ConnectionTrackerConfig{
+			HostID:       hostID,
+			SpyProcs:     flags.spyProcs,
+			UseConntrack: flags.useConntrack,
+			WalkProc:     flags.procEnabled,
+			UseEbpfConn:  flags.procEnabled,
+			BufferSize:   flags.conntrackBufferSize,
+			ProcessCache: processCache,
+			DNSSnooper:   dnsSnooper,
+			Scanner:      scanner,
+		},
 	})
 	defer endpointReporter.Stop()
 	p.AddReporter(endpointReporter)
