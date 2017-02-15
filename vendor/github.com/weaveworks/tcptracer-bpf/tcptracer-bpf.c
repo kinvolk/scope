@@ -1,12 +1,18 @@
 #include <linux/kconfig.h>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wgnu-variable-sized-type-not-at-end"
 #include <linux/ptrace.h>
+#pragma clang diagnostic pop
 #include <linux/version.h>
 #include <linux/bpf.h>
 #include "bpf_helpers.h"
 #include "tcptracer-bpf.h"
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wtautological-compare"
 #include <net/sock.h>
+#pragma clang diagnostic pop
 #include <net/inet_sock.h>
 #include <net/net_namespace.h>
 
@@ -105,7 +111,7 @@ struct bpf_map_def SEC("maps/tcptracer_status") tcptracer_status = {
 	.type = BPF_MAP_TYPE_HASH,
 	.key_size = sizeof(__u64),
 	.value_size = sizeof(struct tcptracer_status_t),
-	.max_entries = 8,
+	.max_entries = 1,
 };
 
 __attribute__((always_inline))
@@ -286,7 +292,7 @@ static bool check_family(struct sock *sk, u16 expected_family) {
 
 	status = bpf_map_lookup_elem(&tcptracer_status, &zero);
 	if (status == NULL || status->state != TCPTRACER_STATE_READY) {
-		return 1;
+		return 0;
 	}
 
 	bpf_probe_read(&family, sizeof(u16), ((char *)sk) + status->offset_family);
