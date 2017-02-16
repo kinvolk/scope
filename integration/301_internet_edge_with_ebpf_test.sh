@@ -27,6 +27,8 @@ wait_for_containers "$HOST1" 60 nginx "The Internet"
 
 has_connection_by_id containers "$HOST1" "in-theinternet" "$(node_id containers "$HOST1" nginx)"
 
+endpoints_have_ebpf "$HOST1"
+
 kill %do_connections
 
 scope_end_suite
