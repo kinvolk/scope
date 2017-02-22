@@ -15,7 +15,7 @@ RUN go get -tags netgo \
 		github.com/fatih/hclfmt \
 		github.com/mjibson/esc \
 		github.com/client9/misspell/cmd/misspell && \
-	chmod a+wr --recursive /usr/local/go/pkg && \
+	chmod a+wr --recursive /usr/lib/go-1.7/pkg && \
 	rm -rf /go/pkg/ /go/src/
 COPY build.sh /
 ENTRYPOINT ["/build.sh"]
