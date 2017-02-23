@@ -56,33 +56,14 @@ func newConnectionTracker(conf connectionTrackerConfig) connectionTracker {
 	// Run conntrack and proc parsing synchronously only once to initialize ebpfTracker
 	seenTuples := map[string]fourTuple{}
 	// Consult the flowWalker to get the initial state
-	if !conf.UseConntrack {
-		log.Warn("conntrack is disabled")
-	} else if err = IsConntrackSupported(conf.ProcRoot); err != nil {
+	if err := IsConntrackSupported(conf.ProcRoot); conf.UseConntrack && err != nil {
 		log.Warnf("Not using conntrack: not supported by the kernel: %s", err)
+	} else if existingFlows, err := existingConnections([]string{"--any-nat"}); err != nil {
+		log.Errorf("conntrack existingConnections error: %v", err)
 	} else {
-		existingFlows, err := existingConnections([]string{"--any-nat"})
-		if err != nil {
-			log.Errorf("conntrack existingConnections error: %v", err)
-		} else {
-			for _, f := range existingFlows {
-				tuple := fourTuple{
-					f.Original.Layer3.SrcIP,
-					f.Original.Layer3.DstIP,
-					uint16(f.Original.Layer4.SrcPort),
-					uint16(f.Original.Layer4.DstPort),
-				}
-				// Handle DNAT-ed connections in the initial state
-				if f.Original.Layer3.DstIP != f.Reply.Layer3.SrcIP {
-					tuple = fourTuple{
-						f.Reply.Layer3.DstIP,
-						f.Reply.Layer3.SrcIP,
-						uint16(f.Reply.Layer4.DstPort),
-						uint16(f.Reply.Layer4.SrcPort),
-					}
-				}
-				seenTuples[tuple.key()] = tuple
-			}
+		for _, f := range existingFlows {
+			tuple := flowToTuple(f)
+			seenTuples[tuple.key()] = tuple
 		}
 	}
 
@@ -94,7 +75,7 @@ func newConnectionTracker(conf connectionTrackerConfig) connectionTracker {
 	defer scanner.Stop()
 	conns, err := scanner.Connections(conf.SpyProcs)
 	if err != nil {
-		log.Errorf("Error initializing ebpfTracker while scanning /proc, continue without initial connections: %s", err)
+		log.Errorf("Error initializing ebpfTracker while scanning /proc, continuing without initial connections: %s", err)
 		et.feedInitialConnectionsEmpty()
 	} else {
 		et.feedInitialConnections(conns, seenTuples, report.MakeHostNodeID(conf.HostID))
@@ -106,6 +87,25 @@ func newConnectionTracker(conf connectionTrackerConfig) connectionTracker {
 		reverseResolver: newReverseResolver(),
 	}
 	return ct
+}
+
+func flowToTuple(f flow) (ft fourTuple) {
+	ft = fourTuple{
+		f.Original.Layer3.SrcIP,
+		f.Original.Layer3.DstIP,
+		uint16(f.Original.Layer4.SrcPort),
+		uint16(f.Original.Layer4.DstPort),
+	}
+	// Handle DNAT-ed connections in the initial state
+	if f.Original.Layer3.DstIP != f.Reply.Layer3.SrcIP {
+		ft = fourTuple{
+			f.Reply.Layer3.DstIP,
+			f.Reply.Layer3.SrcIP,
+			uint16(f.Reply.Layer4.DstPort),
+			uint16(f.Reply.Layer4.SrcPort),
+		}
+	}
+	return ft
 }
 
 // ReportConnections calls trackers accordingly to the configuration.
@@ -134,24 +134,7 @@ func (t *connectionTracker) performFlowWalk(rpt *report.Report, seenTuples *map[
 		Conntracked: "true",
 	}
 	t.flowWalker.walkFlows(func(f flow, alive bool) {
-		tuple := fourTuple{
-			f.Original.Layer3.SrcIP,
-			f.Original.Layer3.DstIP,
-			uint16(f.Original.Layer4.SrcPort),
-			uint16(f.Original.Layer4.DstPort),
-		}
-		// Handle DNAT-ed short-lived connections.
-		// The NAT mapper won't help since it only runs periodically,
-		// missing the short-lived connections.
-		if f.Original.Layer3.DstIP != f.Reply.Layer3.SrcIP {
-			tuple = fourTuple{
-				f.Reply.Layer3.DstIP,
-				f.Reply.Layer3.SrcIP,
-				uint16(f.Reply.Layer4.DstPort),
-				uint16(f.Reply.Layer4.SrcPort),
-			}
-		}
-
+		tuple := flowToTuple(f)
 		(*seenTuples)[tuple.key()] = tuple
 		t.addConnection(rpt, tuple, "", extraNodeInfo, extraNodeInfo)
 	})
