@@ -76,10 +76,8 @@ func newConnectionTracker(conf connectionTrackerConfig) connectionTracker {
 	conns, err := scanner.Connections(conf.SpyProcs)
 	if err != nil {
 		log.Errorf("Error initializing ebpfTracker while scanning /proc, continuing without initial connections: %s", err)
-		et.feedInitialConnectionsEmpty()
-	} else {
-		et.feedInitialConnections(conns, seenTuples, report.MakeHostNodeID(conf.HostID))
 	}
+	et.feedInitialConnections(conns, seenTuples, report.MakeHostNodeID(conf.HostID))
 	ct := connectionTracker{
 		conf:            conf,
 		flowWalker:      nil,
