@@ -1,6 +1,7 @@
 FROM ubuntu:yakkety
 ENV GOPATH /go
-ENV PATH /go/bin:/usr/lib/go-1.7/bin:/usr/bin:/bin:/usr/sbin:/sbin
+ENV GOVERSION go-1.7
+ENV PATH /go/bin:/usr/lib/${GOVERSION}/bin:/usr/bin:/bin:/usr/sbin:/sbin
 RUN apt-get update && \
 	apt-get install -y libpcap-dev python-requests time file shellcheck golang-1.7 git gcc-arm-linux-gnueabihf && \
 	rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
@@ -15,7 +16,7 @@ RUN go get -tags netgo \
 		github.com/fatih/hclfmt \
 		github.com/mjibson/esc \
 		github.com/client9/misspell/cmd/misspell && \
-	chmod a+wr --recursive /usr/lib/go-1.7/pkg && \
+	chmod a+wr --recursive /usr/lib/${GOVERSION}/pkg && \
 	rm -rf /go/pkg/ /go/src/
 COPY build.sh /
 ENTRYPOINT ["/build.sh"]
