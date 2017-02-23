@@ -22,7 +22,6 @@ type eventTracker interface {
 	handleConnection(ev tracer.EventType, tuple fourTuple, pid int, networkNamespace string)
 	walkConnections(f func(ebpfConnection))
 	feedInitialConnections(ci procspy.ConnIter, seenTuples map[string]fourTuple, hostNodeID string)
-	feedInitialConnectionsEmpty()
 	isFed() bool
 	stop()
 }
@@ -127,6 +126,11 @@ func (t *EbpfTracker) walkConnections(f func(ebpfConnection)) {
 }
 
 func (t *EbpfTracker) feedInitialConnections(conns procspy.ConnIter, seenTuples map[string]fourTuple, hostNodeID string) {
+	if conns == nil {
+		t.fed = true
+		return
+	}
+
 	for conn := conns.Next(); conn != nil; conn = conns.Next() {
 		var (
 			namespaceID string
@@ -151,11 +155,6 @@ func (t *EbpfTracker) feedInitialConnections(conns procspy.ConnIter, seenTuples 
 			t.handleConnection(tracer.EventAccept, tuple, int(conn.Proc.PID), namespaceID)
 		}
 	}
-	t.fed = true
-}
-
-func (t *EbpfTracker) feedInitialConnectionsEmpty() {
-	t.fed = true
 }
 
 func (t *EbpfTracker) isFed() bool {
