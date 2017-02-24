@@ -93,7 +93,7 @@ func TestHandleConnection(t *testing.T) {
 	)
 
 	mockEbpfTracker := &EbpfTracker{
-		fed:  true,
+		readyToHandleConnections: true,
 		dead: false,
 
 		openConnections:   map[string]ebpfConnection{},
@@ -115,7 +115,7 @@ func TestHandleConnection(t *testing.T) {
 	}
 
 	mockEbpfTracker = &EbpfTracker{
-		fed:  true,
+		readyToHandleConnections: true,
 		dead: false,
 
 		openConnections:   map[string]ebpfConnection{},
@@ -156,7 +156,7 @@ func TestWalkConnections(t *testing.T) {
 		}
 	)
 	mockEbpfTracker := &EbpfTracker{
-		fed:  true,
+		readyToHandleConnections: true,
 		dead: false,
 		openConnections: map[string]ebpfConnection{
 			activeTuple.String(): {
