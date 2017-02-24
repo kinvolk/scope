@@ -22,7 +22,7 @@ type eventTracker interface {
 	handleConnection(ev tracer.EventType, tuple fourTuple, pid int, networkNamespace string)
 	walkConnections(f func(ebpfConnection))
 	feedInitialConnections(ci procspy.ConnIter, seenTuples map[string]fourTuple, hostNodeID string)
-	isFed() bool
+	isReadyToHandleConnections() bool
 	stop()
 }
 
@@ -32,9 +32,9 @@ var ebpfTracker *EbpfTracker
 // Closed connections are kept in the `closedConnections` slice for one iteration of `walkConnections`.
 type EbpfTracker struct {
 	sync.Mutex
-	tracer *tracer.Tracer
-	fed    bool
-	dead   bool
+	tracer                   *tracer.Tracer
+	readyToHandleConnections bool
+	dead                     bool
 
 	openConnections   map[string]ebpfConnection
 	closedConnections []ebpfConnection
@@ -80,6 +80,11 @@ func tcpEventCbV6(e tracer.TcpV6) {
 func (t *EbpfTracker) handleConnection(ev tracer.EventType, tuple fourTuple, pid int, networkNamespace string) {
 	t.Lock()
 	defer t.Unlock()
+
+	if !t.isReadyToHandleConnections() {
+		return
+	}
+
 	log.Debugf("handleConnection(%v, [%v:%v --> %v:%v], pid=%v, netNS=%v)",
 		ev, tuple.fromAddr, tuple.fromPort, tuple.toAddr, tuple.toPort, pid, networkNamespace)
 
@@ -126,11 +131,7 @@ func (t *EbpfTracker) walkConnections(f func(ebpfConnection)) {
 }
 
 func (t *EbpfTracker) feedInitialConnections(conns procspy.ConnIter, seenTuples map[string]fourTuple, hostNodeID string) {
-	if conns == nil {
-		t.fed = true
-		return
-	}
-
+	t.readyToHandleConnections = true
 	for conn := conns.Next(); conn != nil; conn = conns.Next() {
 		var (
 			namespaceID string
@@ -157,8 +158,8 @@ func (t *EbpfTracker) feedInitialConnections(conns procspy.ConnIter, seenTuples 
 	}
 }
 
-func (t *EbpfTracker) isFed() bool {
-	return t.fed
+func (t *EbpfTracker) isReadyToHandleConnections() bool {
+	return t.readyToHandleConnections
 }
 
 func (t *EbpfTracker) stop() {
