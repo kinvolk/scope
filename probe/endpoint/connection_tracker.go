@@ -28,6 +28,7 @@ type connectionTracker struct {
 	flowWalker      flowWalker // Interface
 	ebpfTracker     eventTracker
 	reverseResolver *reverseResolver
+	processCache    *process.CachingWalker
 }
 
 func newConnectionTracker(conf connectionTrackerConfig) connectionTracker {
@@ -53,37 +54,19 @@ func newConnectionTracker(conf connectionTrackerConfig) connectionTracker {
 		}
 		return noopConnectionTracker
 	}
-	// Run conntrack and proc parsing synchronously only once to initialize ebpfTracker
-	seenTuples := map[string]fourTuple{}
-	// Consult the flowWalker to get the initial state
-	if err := IsConntrackSupported(conf.ProcRoot); conf.UseConntrack && err != nil {
-		log.Warnf("Not using conntrack: not supported by the kernel: %s", err)
-	} else if existingFlows, err := existingConnections([]string{"--any-nat"}); err != nil {
-		log.Errorf("conntrack existingConnections error: %v", err)
-	} else {
-		for _, f := range existingFlows {
-			tuple := flowToTuple(f)
-			seenTuples[tuple.key()] = tuple
-		}
-	}
 
 	var processCache *process.CachingWalker
-	var scanner procspy.ConnectionScanner
 	processCache = process.NewCachingWalker(process.NewWalker(conf.ProcRoot))
 	processCache.Tick()
-	scanner = procspy.NewSyncConnectionScanner(processCache)
-	defer scanner.Stop()
-	conns, err := scanner.Connections(conf.SpyProcs)
-	if err != nil {
-		log.Errorf("Error initializing ebpfTracker while scanning /proc, continuing without initial connections: %s", err)
-	}
-	et.feedInitialConnections(conns, seenTuples, report.MakeHostNodeID(conf.HostID))
+
 	ct := connectionTracker{
 		conf:            conf,
 		flowWalker:      nil,
 		ebpfTracker:     et,
 		reverseResolver: newReverseResolver(),
+		processCache:    processCache,
 	}
+	go ct.getInitialState()
 	return ct
 }
 
@@ -176,6 +159,30 @@ func (t *connectionTracker) performWalkProc(rpt *report.Report, hostNodeID strin
 		t.addConnection(rpt, tuple, namespaceID, fromNodeInfo, toNodeInfo)
 	}
 	return nil
+}
+
+func (t *connectionTracker) getInitialState() {
+	scanner := procspy.NewSyncConnectionScanner(t.processCache)
+	// Run conntrack and proc parsing synchronously only once to initialize ebpfTracker
+	seenTuples := map[string]fourTuple{}
+	// Consult the flowWalker to get the initial state
+	if err := IsConntrackSupported(t.conf.ProcRoot); t.conf.UseConntrack && err != nil {
+		log.Warnf("Not using conntrack: not supported by the kernel: %s", err)
+	} else if existingFlows, err := existingConnections([]string{"--any-nat"}); err != nil {
+		log.Errorf("conntrack existingConnections error: %v", err)
+	} else {
+		for _, f := range existingFlows {
+			tuple := flowToTuple(f)
+			seenTuples[tuple.key()] = tuple
+		}
+	}
+
+	conns, err := scanner.Connections(t.conf.SpyProcs)
+	if err != nil {
+		log.Errorf("Error initializing ebpfTracker while scanning /proc, continuing without initial connections: %s", err)
+	}
+
+	t.ebpfTracker.feedInitialConnections(conns, seenTuples, report.MakeHostNodeID(t.conf.HostID))
 }
 
 func (t *connectionTracker) performEbpfTrack(rpt *report.Report, hostNodeID string) error {
