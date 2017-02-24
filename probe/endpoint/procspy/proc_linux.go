@@ -216,6 +216,7 @@ func (w pidWalker) walk(buf *bytes.Buffer) (map[uint64]*Proc, error) {
 	// between reading /net/tcp{,6} of each namespace and /proc/PID/fd/* for
 	// the processes living in that namespace.
 
+	time.Sleep(50 * time.Second)
 	w.walker.Walk(func(p, _ process.Process) {
 		dirName := strconv.Itoa(p.PID)
 
