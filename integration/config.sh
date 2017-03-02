@@ -99,14 +99,14 @@ endpoints_have_ebpf() {
         have_ebpf=$(echo "${report}" | jq -r '.Endpoint.nodes[].latest.eBPF | select(.value != null) | contains({"value": "true"})' | wc -l)
         if [[ "$number_of_endpoints" -gt 0 && "$have_ebpf" -gt 0 && "$number_of_endpoints" -eq "$have_ebpf" ]]; then
             echo "Found ${number_of_endpoints} endpoints with ebpf enabled"
-            assert "echo '${report}' | jq -r '.Endpoint.nodes[].latest.eBPF | select(.value != null) | contains({\"value\": \"true\"})' | wc -l" "$number_of_endpoints"
+            assert "echo '$have_ebpf'" "$number_of_endpoints"
             return
         fi
         sleep 1
     done
 
     echo "Only ${have_ebpf} endpoints of ${number_of_endpoints} have ebpf enabled, should be equal"
-    assert "echo '${report}' | jq -r '.Endpoint.nodes[].latest.eBPF | select(.value != null) | contains({\"value\": \"true\"})' | wc -l" "$number_of_endpoints"
+    assert "echo '$have_ebpf" "$number_of_endpoints"
 }
 
 has_connection() {
