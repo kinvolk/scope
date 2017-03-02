@@ -2,11 +2,14 @@ package endpoint
 
 import (
 	"errors"
+	"fmt"
+	"regexp"
 	"strconv"
 	"sync"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/weaveworks/scope/probe/endpoint/procspy"
+	"github.com/weaveworks/scope/probe/host"
 	"github.com/weaveworks/tcptracer-bpf/pkg/tracer"
 )
 
@@ -40,9 +43,47 @@ type EbpfTracker struct {
 	closedConnections []ebpfConnection
 }
 
+var releaseRegex = regexp.MustCompile(`^(\d+)\.(\d+).*$`)
+
+func isKernelSupported() error {
+	release, _, err := host.GetKernelReleaseAndVersion()
+	if err != nil {
+		return err
+	}
+
+	releaseParts := releaseRegex.FindStringSubmatch(release)
+	if len(releaseParts) != 3 {
+		return fmt.Errorf("got invalid release version %q (expected format '4.4[.2-1]')", release)
+	}
+
+	major, err := strconv.Atoi(releaseParts[1])
+	if err != nil {
+		return err
+	}
+
+	minor, err := strconv.Atoi(releaseParts[2])
+	if err != nil {
+		return err
+	}
+
+	if major > 4 {
+		return nil
+	}
+
+	if major < 4 || minor < 4 {
+		return fmt.Errorf("got kernel %s but need kernel >=4.4", release)
+	}
+
+	return nil
+}
+
 func newEbpfTracker(useEbpfConn bool) (eventTracker, error) {
 	if !useEbpfConn {
 		return nil, errors.New("ebpf tracker not enabled")
+	}
+
+	if err := isKernelSupported(); err != nil {
+		return nil, fmt.Errorf("kernel not supported: %v", err)
 	}
 
 	t, err := tracer.NewTracer(tcpEventCbV4, tcpEventCbV6)
