@@ -47,7 +47,6 @@ func newEbpfTracker(useEbpfConn bool) (eventTracker, error) {
 
 	t, err := tracer.NewTracer(tcpEventCbV4, tcpEventCbV6)
 	if err != nil {
-		log.Errorf("Cannot find BPF object file: %v", err)
 		return nil, err
 	}
 
