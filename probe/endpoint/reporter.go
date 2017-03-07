@@ -3,6 +3,8 @@ package endpoint
 import (
 	"time"
 
+	log "github.com/Sirupsen/logrus"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/weaveworks/scope/probe/endpoint/procspy"
 	"github.com/weaveworks/scope/report"
@@ -96,5 +98,7 @@ func (r *Reporter) Report() (report.Report, error) {
 
 	r.connectionTracker.ReportConnections(&rpt)
 	r.natMapper.applyNAT(rpt, r.conf.HostID)
+
+	log.Infof("Report() called. %d endpoints", len(rpt.Endpoint.Nodes))
 	return rpt, nil
 }

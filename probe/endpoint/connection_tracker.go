@@ -31,6 +31,8 @@ type connectionTracker struct {
 	processCache    *process.CachingWalker
 }
 
+var addConnectionCount = 0
+
 func newConnectionTracker(conf connectionTrackerConfig) connectionTracker {
 	if !conf.UseEbpfConn {
 		// ebpf OFF, use flowWalker
@@ -113,6 +115,8 @@ func (t *connectionTracker) ReportConnections(rpt *report.Report) {
 }
 
 func (t *connectionTracker) performFlowWalk(rpt *report.Report, seenTuples *map[string]fourTuple) {
+	addConnectionCount = 0
+
 	// Consult the flowWalker for short-lived connections
 	extraNodeInfo := map[string]string{
 		Conntracked: "true",
@@ -122,9 +126,12 @@ func (t *connectionTracker) performFlowWalk(rpt *report.Report, seenTuples *map[
 		(*seenTuples)[tuple.key()] = tuple
 		t.addConnection(rpt, tuple, "", extraNodeInfo, extraNodeInfo)
 	})
+	log.Errorf("performFlowWalk: added %d connections", addConnectionCount)
 }
 
 func (t *connectionTracker) performWalkProc(rpt *report.Report, hostNodeID string, seenTuples *map[string]fourTuple) error {
+	addConnectionCount = 0
+
 	conns, err := t.conf.Scanner.Connections(t.conf.SpyProcs)
 	if err != nil {
 		return err
@@ -161,6 +168,7 @@ func (t *connectionTracker) performWalkProc(rpt *report.Report, hostNodeID strin
 		}
 		t.addConnection(rpt, tuple, namespaceID, fromNodeInfo, toNodeInfo)
 	}
+	log.Errorf("performWalkProc: added %d connections", addConnectionCount)
 	return nil
 }
 
@@ -189,6 +197,8 @@ func (t *connectionTracker) getInitialState() {
 }
 
 func (t *connectionTracker) performEbpfTrack(rpt *report.Report, hostNodeID string) error {
+	addConnectionCount = 0
+
 	t.ebpfTracker.walkConnections(func(e ebpfConnection) {
 		fromNodeInfo := map[string]string{
 			EBPF: "true",
@@ -208,6 +218,7 @@ func (t *connectionTracker) performEbpfTrack(rpt *report.Report, hostNodeID stri
 		}
 
 	})
+	log.Errorf("performEbpfTrack: added %d connections", addConnectionCount)
 	return nil
 }
 
@@ -218,6 +229,8 @@ func (t *connectionTracker) addConnection(rpt *report.Report, ft fourTuple, name
 	)
 	rpt.Endpoint = rpt.Endpoint.AddNode(fromNode.WithEdge(toNode.ID, report.EdgeMetadata{}))
 	rpt.Endpoint = rpt.Endpoint.AddNode(toNode)
+
+	addConnectionCount = addConnectionCount + 1
 }
 
 func (t *connectionTracker) makeEndpointNode(namespaceID string, addr string, port uint16, extra map[string]string) report.Node {
