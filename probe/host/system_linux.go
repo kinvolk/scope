@@ -5,30 +5,14 @@ import (
 	"io/ioutil"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	linuxproc "github.com/c9s/goprocinfo/linux"
 
-	"github.com/weaveworks/scope/common/marshal"
 	"github.com/weaveworks/scope/report"
 )
 
 const kb = 1024
-
-// Uname is swappable for mocking in tests.
-var Uname = syscall.Uname
-
-// GetKernelReleaseAndVersion returns the kernel version as reported by uname.
-var GetKernelReleaseAndVersion = func() (string, string, error) {
-	var utsname syscall.Utsname
-	if err := Uname(&utsname); err != nil {
-		return "unknown", "unknown", err
-	}
-	release := marshal.FromUtsname(utsname.Release)
-	version := marshal.FromUtsname(utsname.Version)
-	return release, version, nil
-}
 
 // GetLoad returns the current load averages as metrics.
 var GetLoad = func(now time.Time) report.Metrics {

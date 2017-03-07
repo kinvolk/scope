@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/weaveworks/common/mtime"
+	"github.com/weaveworks/scope/common/kernel"
 	"github.com/weaveworks/scope/probe/controls"
 	"github.com/weaveworks/scope/report"
 )
@@ -121,7 +122,7 @@ func (r *Reporter) Report() (report.Report, error) {
 		return rep, err
 	}
 
-	kernelRelease, kernelVersion, err := GetKernelReleaseAndVersion()
+	kernelRelease, kernelVersion, err := kernel.GetReleaseAndVersion()
 	if err != nil {
 		return rep, err
 	}

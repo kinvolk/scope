@@ -8,8 +8,8 @@ import (
 	"sync"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/weaveworks/scope/common/kernel"
 	"github.com/weaveworks/scope/probe/endpoint/procspy"
-	"github.com/weaveworks/scope/probe/host"
 	"github.com/weaveworks/tcptracer-bpf/pkg/tracer"
 )
 
@@ -46,22 +46,7 @@ type EbpfTracker struct {
 var releaseRegex = regexp.MustCompile(`^(\d+)\.(\d+).*$`)
 
 func isKernelSupported() error {
-	release, _, err := host.GetKernelReleaseAndVersion()
-	if err != nil {
-		return err
-	}
-
-	releaseParts := releaseRegex.FindStringSubmatch(release)
-	if len(releaseParts) != 3 {
-		return fmt.Errorf("got invalid release version %q (expected format '4.4[.2-1]')", release)
-	}
-
-	major, err := strconv.Atoi(releaseParts[1])
-	if err != nil {
-		return err
-	}
-
-	minor, err := strconv.Atoi(releaseParts[2])
+	major, minor, patch, err := kernel.GetReleaseNumbers()
 	if err != nil {
 		return err
 	}
@@ -71,7 +56,7 @@ func isKernelSupported() error {
 	}
 
 	if major < 4 || minor < 4 {
-		return fmt.Errorf("got kernel %s but need kernel >=4.4", release)
+		return fmt.Errorf("got kernel %s.%s.%s but need kernel >=4.4", major, minor, patch)
 	}
 
 	return nil

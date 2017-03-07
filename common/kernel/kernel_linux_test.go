@@ -1,28 +1,28 @@
-package host_test
+package kernel_test
 
 import (
 	"fmt"
 	"syscall"
 	"testing"
 
-	"github.com/weaveworks/scope/probe/host"
+	"github.com/weaveworks/scope/common/kernel"
 )
 
 func TestUname(t *testing.T) {
-	oldUname := host.Uname
-	defer func() { host.Uname = oldUname }()
+	oldUname := kernel.Uname
+	defer func() { kernel.Uname = oldUname }()
 
 	const (
 		release = "rls"
 		version = "ver"
 	)
-	host.Uname = func(uts *syscall.Utsname) error {
+	kernel.Uname = func(uts *syscall.Utsname) error {
 		uts.Release = string2c(release)
 		uts.Version = string2c(version)
 		return nil
 	}
 
-	haveRelease, haveVersion, err := host.GetKernelReleaseAndVersion()
+	haveRelease, haveVersion, err := kernel.GetReleaseAndVersion()
 	if err != nil {
 		t.Fatal(err)
 	}

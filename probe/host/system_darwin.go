@@ -1,7 +1,6 @@
 package host
 
 import (
-	"bytes"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -14,21 +13,6 @@ var (
 	loadRe   = regexp.MustCompile(`load averages: ([0-9\.]+) ([0-9\.]+) ([0-9\.]+)`)
 	uptimeRe = regexp.MustCompile(`up ([0-9]+) day[s]*,[ ]+([0-9]+)\:([0-9][0-9])`)
 )
-
-// GetKernelReleaseAndVersion returns the kernel version as reported by uname.
-var GetKernelReleaseAndVersion = func() (string, string, error) {
-	release, err := exec.Command("uname", "-r").CombinedOutput()
-	if err != nil {
-		return "unknown", "unknown", err
-	}
-	release = bytes.Trim(release, " \n")
-	version, err := exec.Command("uname", "-v").CombinedOutput()
-	if err != nil {
-		return string(release), "unknown", err
-	}
-	version = bytes.Trim(version, " \n")
-	return string(release), string(version), nil
-}
 
 // GetLoad returns the current load averages as metrics.
 var GetLoad = func(now time.Time) report.Metrics {

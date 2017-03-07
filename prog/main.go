@@ -15,9 +15,9 @@ import (
 	log "github.com/Sirupsen/logrus"
 
 	"github.com/weaveworks/scope/app"
+	"github.com/weaveworks/scope/common/kernel"
 	"github.com/weaveworks/scope/common/xfer"
 	"github.com/weaveworks/scope/probe/appclient"
-	"github.com/weaveworks/scope/probe/host"
 	"github.com/weaveworks/scope/probe/kubernetes"
 	"github.com/weaveworks/scope/render"
 	"github.com/weaveworks/weave/common"
@@ -221,7 +221,7 @@ func logCensoredArgs() {
 }
 
 func makeBaseCheckpointFlags() map[string]string {
-	release, _, err := host.GetKernelReleaseAndVersion()
+	release, _, err := kernel.GetReleaseAndVersion()
 	if err != nil {
 		release = "unknown"
 	}

@@ -4,7 +4,6 @@ package procspy
 
 import (
 	"bytes"
-	"fmt"
 	"path/filepath"
 	"strconv"
 	"syscall"
@@ -14,7 +13,7 @@ import (
 	"github.com/armon/go-metrics"
 
 	"github.com/weaveworks/common/fs"
-	"github.com/weaveworks/scope/common/marshal"
+	"github.com/weaveworks/scope/common/kernel"
 	"github.com/weaveworks/scope/probe/process"
 )
 
@@ -46,20 +45,6 @@ func SetProcRoot(root string) {
 	procRoot = root
 }
 
-func getKernelVersion() (major, minor int, err error) {
-	var u syscall.Utsname
-	if err = syscall.Uname(&u); err != nil {
-		return
-	}
-
-	// Kernel versions are not always a semver, so we have to do minimal parsing.
-	release := marshal.FromUtsname(u.Release)
-	if n, err := fmt.Sscanf(release, "%d.%d", &major, &minor); err != nil || n != 2 {
-		return 0, 0, fmt.Errorf("Malformed version: %s", release)
-	}
-	return
-}
-
 func getNetNamespacePathSuffix() string {
 	// With Linux 3.8 or later the network namespace of a process can be
 	// determined by the inode of /proc/PID/net/ns.  Before that, Any file
@@ -74,7 +59,7 @@ func getNetNamespacePathSuffix() string {
 		return netNamespacePathSuffix
 	}
 
-	major, minor, err := getKernelVersion()
+	major, minor, _, err := kernel.GetReleaseNumbers()
 	if err != nil {
 		log.Errorf("getNamespacePathSuffix: cannot get kernel version: %s", err)
 		netNamespacePathSuffix = post38Path

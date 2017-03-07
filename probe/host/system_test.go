@@ -1,25 +1,11 @@
 package host_test
 
 import (
-	"fmt"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/weaveworks/scope/probe/host"
 )
-
-func TestGetKernelVersion(t *testing.T) {
-	release, version, err := host.GetKernelReleaseAndVersion()
-	if err != nil {
-		t.Fatal(err)
-	}
-	have := fmt.Sprintf("%s %s", release, version)
-	if strings.Contains(have, "unknown") {
-		t.Fatal(have)
-	}
-	t.Log(have)
-}
 
 func TestGetLoad(t *testing.T) {
 	have := host.GetLoad(time.Now())
