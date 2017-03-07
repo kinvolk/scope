@@ -150,7 +150,7 @@ func (t *EbpfTracker) handleConnection(ev tracer.EventType, tuple fourTuple, pid
 			delete(t.openConnections, tuple.String())
 			t.closedConnections = append(t.closedConnections, deadConn)
 		} else {
-			log.Errorf("EbpfTracker error: unmatched close event: %s pid=%d netns=%s", tuple.String(), pid, networkNamespace)
+			log.Debugf("EbpfTracker: unmatched close event: %s pid=%d netns=%s", tuple.String(), pid, networkNamespace)
 		}
 	}
 }
