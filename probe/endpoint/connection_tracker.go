@@ -184,6 +184,7 @@ func (t *connectionTracker) getInitialState() {
 	if err != nil {
 		log.Errorf("Error initializing ebpfTracker while scanning /proc, continuing without initial connections: %s", err)
 	}
+	scanner.Stop()
 
 	t.ebpfTracker.feedInitialConnections(conns, seenTuples, report.MakeHostNodeID(t.conf.HostID))
 }

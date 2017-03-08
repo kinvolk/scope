@@ -107,6 +107,7 @@ type foregroundReader struct {
 	stopc         chan struct{}
 	latestBuf     *bytes.Buffer
 	latestSockets map[uint64]*Proc
+	ticker        *time.Ticker
 }
 
 // reads synchronously files from /proc
@@ -126,11 +127,13 @@ func newForegroundReader(walker process.Walker) reader {
 	result := <-walkc
 	fr.latestBuf = result.buf
 	fr.latestSockets = result.sockets
+	fr.ticker = ticker
 
 	return fr
 }
 
 func (fr *foregroundReader) stop() {
+	fr.ticker.Stop()
 	close(fr.stopc)
 }
 
