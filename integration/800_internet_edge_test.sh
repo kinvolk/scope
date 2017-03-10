@@ -10,9 +10,10 @@ scope_on "$HOST1" launch
 
 ## Test disabled: it is currently flaky
 ## https://github.com/weaveworks/scope/issues/2308
+set -x
 for i in $(seq 1 20) ; do
-    ps aux | grep '[i]ptables'
-    cat /proc/net/unix | grep 'xtables'
+    ps aux | grep '[i]ptables' || true
+    cat /proc/net/unix | grep 'xtables' || true
 done
 
 docker_on "$HOST1" run -d -p 80:80 --name nginx nginx

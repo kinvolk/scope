@@ -10,6 +10,7 @@ scope_on "$HOST1" launch --probe.ebpf.connections=true
 
 ## Test disabled: it is currently flaky
 ## https://github.com/weaveworks/scope/issues/2308
+set -x
 for i in $(seq 1 20) ; do
     ps aux | grep '[i]ptables' || true
     cat /proc/net/unix | grep 'xtables' || true
