@@ -229,7 +229,7 @@ case "$COMMAND" in
         # Do a dry run of scope in the foreground, so it can parse args etc
         # avoiding the entrypoint script in the process.
         # shellcheck disable=SC2086
-        docker run --rm -e CHECKPOINT_DISABLE --entrypoint=/home/weave/scope $WEAVESCOPE_DOCKER_ARGS "$SCOPE_IMAGE" --dry-run "$@"
+        docker run --rm -e CHECKPOINT_DISABLE --entrypoint=/home/weave/scope "$SCOPE_IMAGE" --dry-run "$@"
 
         if check_docker_for_mac; then
             create_plugins_dir
