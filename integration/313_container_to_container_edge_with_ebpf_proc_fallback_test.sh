@@ -24,4 +24,8 @@ has_container "$HOST1" nginx
 has_container "$HOST1" client
 has_connection containers "$HOST1" client nginx
 
+# Save stdout for debugging output
+exec 3>&1
+assert_raises "docker_on $HOST1 logs weavescope 2>&1 | grep 'Fallback to conntrack' || (docker_on $HOST1 logs weavescope 2>&3 ; false)"
+
 scope_end_suite
