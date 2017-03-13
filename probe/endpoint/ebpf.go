@@ -104,7 +104,11 @@ var lastTimestampV4 uint64
 
 func tcpEventCbV4(e tracer.TcpV4) {
 	if lastTimestampV4 > e.Timestamp {
-		log.Errorf("ERROR: late event!\n")
+		// A kernel bug can cause the timestamps to be wrong, i.e. Ubuntu with Linux 4.4.0-47.68
+		// See https://github.com/iovisor/bcc/issues/790#issuecomment-263704235
+		log.Debugf("tcp tracer received event with timestamp %v even though the last timestamp was %v. Stopping the eBPF tracker.", e.Timestamp, lastTimestampV4)
+		ebpfTracker.dead = true
+		ebpfTracker.stop()
 	}
 
 	lastTimestampV4 = e.Timestamp
