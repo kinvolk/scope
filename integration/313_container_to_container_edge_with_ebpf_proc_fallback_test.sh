@@ -7,7 +7,7 @@ start_suite "Test short lived connections between containers, with ebpf proc fal
 
 weave_on "$HOST1" launch
 # Manually start scope in order to set
-#    `WEAVESCOPE_DOCKER_ARGS="-v /dev/net:/sys/kernel/debug/tracing"`
+#    `WEAVESCOPE_DOCKER_ARGS="-v /tmp:/sys/kernel/debug/tracing:ro"`
 # to make ebpf fail and test the proc fallback.
 DOCKER_HOST=tcp://${HOST1}:${DOCKER_PORT} CHECKPOINT_DISABLE=true \
     WEAVESCOPE_DOCKER_ARGS="-v /tmp:/sys/kernel/debug/tracing:ro" \
