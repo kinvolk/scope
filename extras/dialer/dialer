@@ -17,7 +17,7 @@ dialer=()
 trap 'echo -n "stopping ... "; for c in "${dialer[@]}"; do docker rm -f "$c" >/dev/null; done; echo "done"' EXIT
 
 while true; do
-    dialer+=("$(docker run -d dialer /go/bin/dialer connect "$addr" "10")")
+    dialer+=("$(docker run -d dialer /go/bin/dialer connect "$addr" "25")")
 
     if [ ${#dialer[@]} -gt "$max_dialer" ]; then
         rand=$(((RANDOM % max_dialer) + 1))
