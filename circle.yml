@@ -68,6 +68,7 @@ test:
         parallel: true
     - test "$CIRCLE_NODE_INDEX" != "0" || (cd $SRCDIR; cp scope.tar $CIRCLE_ARTIFACTS):
         parallel: true
+    - for i in $(seq 1 90); do echo $i; sleep 60; done
 
 deployment:
   hub:
