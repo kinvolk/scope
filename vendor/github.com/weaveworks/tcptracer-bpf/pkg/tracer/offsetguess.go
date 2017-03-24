@@ -224,6 +224,8 @@ func tryCurrentOffset(module *elf.Module, mp *elf.Map, status *tcpTracerStatus, 
 	return nil
 }
 
+var tries int = 0
+
 // checkAndUpdateCurrentOffset checks the value for the current offset stored
 // in the eBPF map against the expected value, incrementing the offset if it
 // doesn't match, or going to the next field to guess if it does
@@ -235,7 +237,15 @@ func checkAndUpdateCurrentOffset(module *elf.Module, mp *elf.Map, status *tcpTra
 	}
 
 	if status.state != stateChecked {
-		return fmt.Errorf("invalid guessing state while guessing %v, got %v expected %v", whatString[status.what], stateString[status.state], stateString[stateChecked])
+		if tries > 10 {
+			return fmt.Errorf("invalid guessing state while guessing %v, got %v expected %v", whatString[status.what], stateString[status.state], stateString[stateChecked])
+		} else {
+			fmt.Printf("state is %v while guessing %v, retrying...\n", stateString[status.state], whatString[status.what])
+			time.Sleep(10 * time.Millisecond)
+			return nil
+		}
+	} else {
+		tries = 0
 	}
 
 	switch status.what {
