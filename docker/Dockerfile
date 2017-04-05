@@ -1,9 +1,6 @@
-FROM alpine:3.3
-MAINTAINER Weaveworks Inc <help@weave.works>
-LABEL works.weave.role=system
+FROM weaveworks/cloud-agent
 WORKDIR /home/weave
-RUN echo "http://dl-4.alpinelinux.org/alpine/edge/testing" >>/etc/apk/repositories && \
-	apk add --update bash runit conntrack-tools iproute2 util-linux curl tshark && \
+RUN apk add --update runit tshark && \
 	rm -rf /var/cache/apk/*
 ADD ./docker.tgz /
 COPY ./weave /usr/bin/
