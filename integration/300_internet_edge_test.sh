@@ -30,7 +30,7 @@ EOFSSH
 export DEBUG=1
 set -x
 
-docker_on "$HOST1" logs weavescope 2>&1
+#docker_on "$HOST1" logs weavescope 2>&1
 
 docker_on "$HOST1" run -d -p 80:80 --name nginx nginx
 
