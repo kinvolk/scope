@@ -33,6 +33,7 @@ dependencies:
       mkdir -p $(dirname $SRCDIR) &&
       cp -r $(pwd)/ $SRCDIR &&
       cd $SRCDIR/integration && rm 1*.sh 2*.sh 4*.sh &&
+      for i in $(seq 460 480) ; do cp 340*.sh ${i}_process_edge_across_host_2_test.sh ; done &&
       for i in $(seq 400 450) ; do cp 300*.sh ${i}_internet_edge_test.sh ; done &&
       for i in $(seq 500 550) ; do cp 301*.sh ${i}_internet_edge_with_ebpf_test.sh ; done
     - "cd $SRCDIR/client; ../tools/rebuild-image weaveworks/scope-ui-build . Dockerfile package.json webpack.production.config.js .eslintrc .babelrc && touch $SRCDIR/.scope_ui_build.uptodate"
