@@ -15,6 +15,8 @@ scope_on "$HOST1" launch
 
 set -x
 
+docker_on "$HOST1" logs weavescope 2>&1
+
 docker_on "$HOST1" run -d -p 80:80 --name nginx nginx
 
 do_connections() {
