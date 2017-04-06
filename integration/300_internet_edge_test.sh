@@ -13,6 +13,21 @@ scope_on "$HOST1" launch
 #    cat /proc/net/unix | grep 'xtables' || true
 #done
 
+ssh "$HOST1" << "EOFSSH"
+  if [ ! -f /sbin/iptables.real ] ; then
+    sudo ln -s xtables-multi /sbin/iptables.real
+    sudo rm -f /sbin/iptables
+    cat | sudo tee /sbin/iptables <<EOF
+#!/bin/sh
+date >> /tmp/iptables.log
+echo "\$@" >> /tmp/iptables.log
+exec iptables.real iptables "\$@"
+EOF
+    sudo chmod +x /sbin/iptables
+  fi
+EOFSSH
+
+export DEBUG=1
 set -x
 
 docker_on "$HOST1" logs weavescope 2>&1
