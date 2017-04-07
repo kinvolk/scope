@@ -27,6 +27,7 @@ type Response struct {
 	Pipe             string `json:"pipe,omitempty"`
 	RawTTY           bool   `json:"raw_tty,omitempty"`
 	ResizeTTYControl string `json:"resize_tty_control,omitempty"`
+	RawPipeTemplate  string `json:"raw_pipe_template,omitempty"` // How to connect to the raw pipe
 
 	// Remove specific fields
 	RemovedNode string `json:"removedNode,omitempty"` // Set if node was removed

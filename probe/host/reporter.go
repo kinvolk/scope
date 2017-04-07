@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/weaveworks/common/mtime"
+
 	"github.com/weaveworks/scope/probe/controls"
 	"github.com/weaveworks/scope/report"
 )
@@ -24,6 +25,8 @@ const (
 	CPUUsage      = "host_cpu_usage_percent"
 	MemoryUsage   = "host_mem_usage_bytes"
 	ScopeVersion  = "host_scope_version"
+	// Control IDs used by the host integration.
+	ExecHost = "host_exec"
 )
 
 // Exposed for testing.
@@ -72,13 +75,11 @@ func NewReporter(hostID, hostName, probeID, version string, pipes controls.PipeC
 		hostID:          hostID,
 		hostName:        hostName,
 		probeID:         probeID,
-		pipes:           pipes,
 		version:         version,
-		hostShellCmd:    getHostShellCmd(),
 		handlerRegistry: handlerRegistry,
-		pipeIDToTTY:     map[string]uintptr{},
 	}
-	r.registerControls()
+	shellHandler := controls.MakeTTYCommandHandler("host shell", pipes, getHostShellCmd())
+	r.handlerRegistry.Register(ExecHost, shellHandler)
 	return r
 }
 
@@ -165,5 +166,5 @@ func (r *Reporter) Report() (report.Report, error) {
 
 // Stop stops the reporter.
 func (r *Reporter) Stop() {
-	r.deregisterControls()
+	r.handlerRegistry.Rm(ExecHost)
 }
