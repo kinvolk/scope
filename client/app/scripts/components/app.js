@@ -13,7 +13,7 @@ import Topologies from './topologies';
 import TopologyOptions from './topology-options';
 import { getApiDetails, getTopologies } from '../utils/web-api-utils';
 import { focusSearch, pinNextMetric, hitBackspace, hitEnter, hitEsc, unpinMetric,
-  selectMetric, toggleHelp, toggleGridMode, shutdown } from '../actions/app-actions';
+  selectMetric, toggleHelp, toggleGridMode, shutdown, setOptionKeyDown } from '../actions/app-actions';
 import Details from './details';
 import Nodes from './nodes';
 import ViewModeSelector from './view-mode-selector';
@@ -27,11 +27,13 @@ import {
   isTableViewModeSelector,
   isGraphViewModeSelector,
 } from '../selectors/topology';
+import RawPipeDialog from './raw-pipe-dialog';
 
 
 const BACKSPACE_KEY_CODE = 8;
 const ENTER_KEY_CODE = 13;
 const ESC_KEY_CODE = 27;
+const ALT_KEY_CODE = 18;
 const keyPressLog = debug('scope:app-key-press');
 
 class App extends React.Component {
@@ -40,11 +42,13 @@ class App extends React.Component {
     super(props, context);
     this.onKeyPress = this.onKeyPress.bind(this);
     this.onKeyUp = this.onKeyUp.bind(this);
+    this.onKeyDown = this.onKeyDown.bind(this);
   }
 
   componentDidMount() {
     window.addEventListener('keypress', this.onKeyPress);
     window.addEventListener('keyup', this.onKeyUp);
+    window.addEventListener('keydown', this.onKeyDown);
 
     getRouter(this.props.dispatch, this.props.urlState).start({hashbang: true});
     if (!this.props.routeSet || process.env.WEAVE_CLOUD) {
@@ -58,6 +62,7 @@ class App extends React.Component {
   componentWillUnmount() {
     window.removeEventListener('keypress', this.onKeyPress);
     window.removeEventListener('keyup', this.onKeyUp);
+    window.removeEventListener('keydown', this.onKeyDown);
     this.props.dispatch(shutdown());
   }
 
@@ -75,6 +80,15 @@ class App extends React.Component {
     } else if (ev.code === 'KeyD' && ev.ctrlKey && !showingTerminal) {
       toggleDebugToolbar();
       this.forceUpdate();
+    } else if (ev.keyCode === ALT_KEY_CODE) {
+      this.props.dispatch(setOptionKeyDown(false));
+    }
+  }
+
+  onKeyDown(ev) {
+    keyPressLog('onKeyDown', 'keyCode', ev.keyCode, ev);
+    if (ev.keyCode === ALT_KEY_CODE) {
+      this.props.dispatch(setOptionKeyDown(true));
     }
   }
 
@@ -108,7 +122,7 @@ class App extends React.Component {
 
   render() {
     const { isTableViewMode, isGraphViewMode, isResourceViewMode, showingDetails, showingHelp,
-      showingNetworkSelector, showingTroubleshootingMenu } = this.props;
+      showingNetworkSelector, showingTroubleshootingMenu, showingRawPipe } = this.props;
     const isIframe = window !== window.top;
 
     return (
@@ -120,6 +134,8 @@ class App extends React.Component {
         {showingTroubleshootingMenu && <TroubleshootingMenu />}
 
         {showingDetails && <Details />}
+
+        {showingRawPipe && <RawPipeDialog />}
 
         <div className="header">
           <div className="logo">

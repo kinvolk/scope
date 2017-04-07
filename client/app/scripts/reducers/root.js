@@ -59,6 +59,7 @@ export const initialState = makeMap({
   nodesLoaded: false,
   // nodes cache, infrequently updated, used for search & resource view
   nodesByTopology: makeMap(), // topologyId -> nodes
+  optionKeyDown: false,
   // class of metric, e.g. 'cpu', rather than 'host_cpu' or 'process_cpu'.
   // allows us to keep the same metric "type" selected when the topology changes.
   pinnedMetricType: null,
@@ -231,6 +232,10 @@ export function rootReducer(state = initialState, action) {
 
     case ActionTypes.CACHE_ZOOM_STATE: {
       return state.setIn(activeTopologyZoomCacheKeyPathSelector(state), action.zoomState);
+    }
+
+    case ActionTypes.SET_OPTION_KEY_DOWN: {
+      return state.set('optionKeyDown', action.down);
     }
 
     case ActionTypes.CLEAR_CONTROL_ERROR: {
@@ -523,7 +528,8 @@ export function rootReducer(state = initialState, action) {
         nodeId: action.nodeId,
         raw: action.rawTty,
         resizeTtyControl: action.resizeTtyControl,
-        control: action.control
+        control: action.control,
+        rawPipeTemplate: action.rawPipeTemplate
       }));
     }
 
