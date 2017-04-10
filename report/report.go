@@ -40,6 +40,7 @@ const (
 // Report is the core data type. It's produced by probes, and consumed and
 // stored by apps. It's composed of multiple topologies, each representing
 // a different (related, but not equivalent) view of the network.
+//proteus:generate
 type Report struct {
 	// Endpoint nodes are individual (address, port) tuples on each host.
 	// They come from inspecting active connections and can (theoretically)

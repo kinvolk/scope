@@ -11,6 +11,7 @@ import (
 type Controls map[string]Control
 
 // A Control basically describes an RPC
+//proteus:generate
 type Control struct {
 	ID    string `json:"id"`
 	Human string `json:"human"`
