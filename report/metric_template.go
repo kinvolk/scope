@@ -6,6 +6,7 @@ import (
 )
 
 // MetricTemplate extracts a metric row from a node
+//proteus:generate
 type MetricTemplate struct {
 	ID       string  `json:"id"`
 	Label    string  `json:"label,omitempty"`

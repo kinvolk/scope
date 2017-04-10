@@ -9,6 +9,7 @@ import (
 // Node describes a superset of the metadata that probes can collect about a
 // given node in a given topology, along with the edges emanating from the
 // node and metadata about those edges.
+//proteus:generate
 type Node struct {
 	ID             string                   `json:"id,omitempty"`
 	Topology       string                   `json:"topology,omitempty"`

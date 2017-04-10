@@ -220,6 +220,7 @@ func (t Table) Copy() Table {
 }
 
 // TableTemplate describes how to render a table for the UI.
+//proteus:generate
 type TableTemplate struct {
 	ID      string   `json:"id"`
 	Label   string   `json:"label"`

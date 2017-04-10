@@ -19,6 +19,7 @@ const (
 )
 
 // MetadataTemplate extracts some metadata rows from a node
+//proteus:generate
 type MetadataTemplate struct {
 	ID       string  `json:"id"`
 	Label    string  `json:"label,omitempty"`    // Human-readable descriptor for this row
