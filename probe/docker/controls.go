@@ -20,6 +20,7 @@ const (
 	RemoveContainer  = "docker_remove_container"
 	AttachContainer  = "docker_attach_container"
 	ExecContainer    = "docker_exec_container"
+	AnalyzeTraffic   = "docker_analyze_traffic"
 	ResizeExecTTY    = "docker_resize_exec_tty"
 
 	waitTime = 10
@@ -104,6 +105,12 @@ func (r *registry) attachContainer(containerID string, req xfer.Request) xfer.Re
 		Pipe:   id,
 		RawTTY: hasTTY,
 	}
+}
+
+func (r *registry) analyzeTraffic(containerID string, req xfer.Request) xfer.Response {
+	cmd := []string{"/bin/sh", "-c", "while sleep 1 ; do date ; done"}
+	handler := controls.MakeTTYCommandHandler("traffic analyzer", r.pipes, cmd)
+	return handler(req)
 }
 
 func (r *registry) execContainer(containerID string, req xfer.Request) xfer.Response {
@@ -200,6 +207,7 @@ func (r *registry) registerControls() {
 		RemoveContainer:  captureContainerID(r.removeContainer),
 		AttachContainer:  captureContainerID(r.attachContainer),
 		ExecContainer:    captureContainerID(r.execContainer),
+		AnalyzeTraffic:   captureContainerID(r.analyzeTraffic),
 		ResizeExecTTY:    xfer.ResizeTTYControlWrapper(r.resizeExecTTY),
 	}
 	r.handlerRegistry.Batch(nil, controls)
@@ -215,6 +223,7 @@ func (r *registry) deregisterControls() {
 		RemoveContainer,
 		AttachContainer,
 		ExecContainer,
+		AnalyzeTraffic,
 		ResizeExecTTY,
 	}
 	r.handlerRegistry.Batch(controls, nil)

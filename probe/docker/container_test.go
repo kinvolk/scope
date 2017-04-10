@@ -66,6 +66,7 @@ func TestContainer(t *testing.T) {
 			docker.PauseContainer:   {Dead: false},
 			docker.AttachContainer:  {Dead: false},
 			docker.ExecContainer:    {Dead: false},
+			docker.AnalyzeTraffic:   {Dead: false},
 			docker.StartContainer:   {Dead: true},
 			docker.RemoveContainer:  {Dead: true},
 		}

@@ -131,6 +131,12 @@ var (
 			Icon:  "fa-trash-o",
 			Rank:  8,
 		},
+		{
+			ID:    AnalyzeTraffic,
+			Human: "Analyze traffic",
+			Icon:  "fa-plug",
+			Rank:  9,
+		},
 	}
 )
 
