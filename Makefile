@@ -99,6 +99,8 @@ $(SCOPE_EXE) $(RUNSVINIT) lint tests shell prog/staticui/staticui.go prog/extern
 else
 
 $(SCOPE_EXE): $(SCOPE_BACKEND_BUILD_UPTODATE)
+	mkdir -p $(GOPATH)/src/github.com/weaveworks/scope/report/proteus/
+	proteus -f $(GOPATH)/src/github.com/weaveworks/scope/report/proteus/ -p github.com/weaveworks/scope/report
 	time $(GO) build $(GO_BUILD_FLAGS) -o $@ ./$(@D)
 	@strings $@ | grep cgo_stub\\\.go >/dev/null || { \
 	        rm $@; \
