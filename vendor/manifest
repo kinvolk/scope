@@ -874,6 +874,14 @@
 			"branch": "master"
 		},
 		{
+			"importpath": "github.com/gogo/protobuf",
+			"repository": "https://github.com/gogo/protobuf",
+			"vcs": "git",
+			"revision": "6fe4aed35b712b681d5d372e06da5344c22ed61f",
+			"branch": "master",
+			"notests": true
+		},
+		{
 			"importpath": "github.com/golang/glog",
 			"repository": "https://github.com/golang/glog",
 			"vcs": "",
