@@ -24,6 +24,16 @@ func NewWalker(procRoot string) Walker {
 }
 
 func readStats(path string) (ppid, threads int, jiffies, rss, rssLimit uint64, err error) {
+	const (
+		// /proc/<pid>/stat field positions, counting from zero
+		// see "man 5 proc"
+		procStatFieldPpid        int = 3
+		procStatFieldUserJiffies int = 13
+		procStatFieldSysJiffies  int = 14
+		procStatFieldThreads     int = 19
+		procStatFieldRssPages    int = 23
+		procStatFieldRssLimit    int = 24
+	)
 	var (
 		buf                               []byte
 		userJiffies, sysJiffies, rssPages uint64
@@ -32,34 +42,51 @@ func readStats(path string) (ppid, threads int, jiffies, rss, rssLimit uint64, e
 	if err != nil {
 		return
 	}
-	splits := strings.Fields(string(buf))
-	if len(splits) < 25 {
-		err = fmt.Errorf("Invalid /proc/PID/stat")
-		return
+
+	pos := 0
+	for spaceCount := 0; pos < len(buf) && spaceCount < procStatFieldPpid; pos++ {
+		if buf[pos] == ' ' {
+			spaceCount++
+		}
 	}
-	ppid, err = strconv.Atoi(splits[3])
-	if err != nil {
-		return
+	for ; pos < len(buf) && buf[pos] != ' '; pos++ {
+		ppid = ppid*10 + int(buf[pos]-'0')
 	}
-	threads, err = strconv.Atoi(splits[19])
-	if err != nil {
-		return
+	for spaceCount := 0; pos < len(buf) && spaceCount < procStatFieldUserJiffies-procStatFieldPpid; pos++ {
+		if buf[pos] == ' ' {
+			spaceCount++
+		}
 	}
-	userJiffies, err = strconv.ParseUint(splits[13], 10, 64)
-	if err != nil {
-		return
+	for ; pos < len(buf) && buf[pos] != ' '; pos++ {
+		userJiffies = userJiffies*10 + uint64(buf[pos]-'0')
 	}
-	sysJiffies, err = strconv.ParseUint(splits[14], 10, 64)
-	if err != nil {
-		return
+	pos++ // space between userJiffies and sysJiffies
+	for ; pos < len(buf) && buf[pos] != ' '; pos++ {
+		sysJiffies = sysJiffies*10 + uint64(buf[pos]-'0')
 	}
+	for spaceCount := 0; pos < len(buf) && spaceCount < procStatFieldThreads-procStatFieldSysJiffies; pos++ {
+		if buf[pos] == ' ' {
+			spaceCount++
+		}
+	}
+	for ; pos < len(buf) && buf[pos] != ' '; pos++ {
+		threads = threads*10 + int(buf[pos]-'0')
+	}
+	for spaceCount := 0; pos < len(buf) && spaceCount < procStatFieldRssPages-procStatFieldThreads; pos++ {
+		if buf[pos] == ' ' {
+			spaceCount++
+		}
+	}
+	for ; pos < len(buf) && buf[pos] != ' '; pos++ {
+		rssPages = rssPages*10 + uint64(buf[pos]-'0')
+	}
+	pos++ // space between rssPages and rssLimit
+	for ; pos < len(buf) && buf[pos] != ' '; pos++ {
+		rssLimit = rssLimit*10 + uint64(buf[pos]-'0')
+	}
+
 	jiffies = userJiffies + sysJiffies
-	rssPages, err = strconv.ParseUint(splits[23], 10, 64)
-	if err != nil {
-		return
-	}
 	rss = rssPages * uint64(os.Getpagesize())
-	rssLimit, err = strconv.ParseUint(splits[24], 10, 64)
 	return
 }
 
