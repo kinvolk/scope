@@ -161,7 +161,7 @@ func NewClient(config ClientConfig) (Client, error) {
 
 func (c *client) setupStore(kclient cache.Getter, resource string, itemType interface{}) cache.Store {
 	lw := cache.NewListWatchFromClient(kclient, resource, api.NamespaceAll, fields.Everything())
-	store := cache.NewStore(cache.MetaNamespaceKeyFunc)
+	store := NewEventStore(c.triggerPodWatches, cache.MetaNamespaceKeyFunc)
 	runReflectorUntil(cache.NewReflector(lw, itemType, store, c.resyncPeriod), c.resyncPeriod, c.quit)
 	return store
 }
