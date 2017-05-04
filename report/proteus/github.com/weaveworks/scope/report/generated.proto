@@ -1,0 +1,222 @@
+syntax = "proto3";
+package github.com.weaveworks.scope.report;
+
+import "github.com/gogo/protobuf/gogoproto/gogo.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+
+option (gogoproto.protosizer_all) = true;
+option (gogoproto.sizer_all) = false;
+option go_package = "report";
+
+// Column is the type for multi-column tables in the UI.
+message Column {
+	option (gogoproto.goproto_getters) = false;
+	option (gogoproto.typedecl) = false;
+	string id = 1 [(gogoproto.customname) = "ID"];
+	string label = 2;
+	string data_type = 3;
+}
+
+// A Control basically describes an RPC
+message Control {
+	option (gogoproto.goproto_getters) = false;
+	option (gogoproto.typedecl) = false;
+	string id = 1 [(gogoproto.customname) = "ID"];
+	string human = 2;
+	string icon = 3;
+	int64 rank = 4 [(gogoproto.casttype) = "int"];
+}
+
+// Counters is a string->int map.
+message Counters {
+	option (gogoproto.goproto_getters) = false;
+	option (gogoproto.goproto_stringer) = false;
+	option (gogoproto.typedecl) = false;
+}
+
+// EdgeMetadatas collect metadata about each edge in a topology. Keys are the
+// remote node IDs, as in Adjacency.
+message EdgeMetadatas {
+	option (gogoproto.goproto_getters) = false;
+	option (gogoproto.goproto_stringer) = false;
+	option (gogoproto.typedecl) = false;
+}
+
+// MetadataTemplate extracts some metadata rows from a node
+message MetadataTemplate {
+	option (gogoproto.goproto_getters) = false;
+	option (gogoproto.typedecl) = false;
+	string id = 1 [(gogoproto.customname) = "ID"];
+	string label = 2;
+	int64 truncate = 3 [(gogoproto.casttype) = "int"];
+	string datatype = 4;
+	double priority = 5;
+	string from = 6;
+}
+
+// Metric is a list of timeseries data with some metadata. Clients must use the
+// Add method to add values.  Metrics are immutable.
+message Metric {
+	option (gogoproto.goproto_getters) = false;
+	option (gogoproto.typedecl) = false;
+	repeated github.com.weaveworks.scope.report.Sample samples = 1 [(gogoproto.nullable) = false];
+	double min = 2;
+	double max = 3;
+	google.protobuf.Timestamp first = 4 [(gogoproto.nullable) = false, (gogoproto.stdtime) = true];
+	google.protobuf.Timestamp last = 5 [(gogoproto.nullable) = false, (gogoproto.stdtime) = true];
+}
+
+// MetricTemplate extracts a metric row from a node
+message MetricTemplate {
+	option (gogoproto.goproto_getters) = false;
+	option (gogoproto.typedecl) = false;
+	string id = 1 [(gogoproto.customname) = "ID"];
+	string label = 2;
+	string format = 3;
+	string group = 4;
+	double priority = 5;
+}
+
+// Node describes a superset of the metadata that probes can collect about a
+// given node in a given topology, along with the edges emanating from the
+// node and metadata about those edges.
+message Node {
+	option (gogoproto.goproto_getters) = false;
+	option (gogoproto.typedecl) = false;
+	string id = 1 [(gogoproto.customname) = "ID"];
+	string topology = 2;
+	github.com.weaveworks.scope.report.Counters counters = 3 [(gogoproto.nullable) = false];
+	github.com.weaveworks.scope.report.Sets sets = 4 [(gogoproto.nullable) = false];
+	repeated string adjacency = 5;
+	github.com.weaveworks.scope.report.EdgeMetadatas edges = 6 [(gogoproto.nullable) = false];
+	github.com.weaveworks.scope.report.NodeControls controls = 7 [(gogoproto.nullable) = false];
+	github.com.weaveworks.scope.report.NodeControlDataLatestMap latest_controls = 8 [(gogoproto.nullable) = false];
+	github.com.weaveworks.scope.report.StringLatestMap latest = 9 [(gogoproto.nullable) = false];
+	map<string, github.com.weaveworks.scope.report.Metric> metrics = 10 [(gogoproto.casttype) = "Metrics", (gogoproto.nullable) = false];
+	github.com.weaveworks.scope.report.Sets parents = 11 [(gogoproto.nullable) = false];
+	github.com.weaveworks.scope.report.NodeSet children = 12 [(gogoproto.nullable) = false];
+}
+
+// NodeControlDataLatestMap holds latest NodeControlData instances.
+message NodeControlDataLatestMap {
+	option (gogoproto.goproto_getters) = false;
+	option (gogoproto.goproto_stringer) = false;
+	option (gogoproto.typedecl) = false;
+}
+
+// NodeControls represent the individual controls that are valid for a given
+// node at a given point in time.  It's immutable. A zero-value for Timestamp
+// indicated this NodeControls is 'not set'.
+message NodeControls {
+	option (gogoproto.goproto_getters) = false;
+	option (gogoproto.typedecl) = false;
+	google.protobuf.Timestamp timestamp = 1 [(gogoproto.nullable) = false, (gogoproto.stdtime) = true];
+	repeated string controls = 2;
+}
+
+// NodeSet is a set of nodes keyed on ID. Clients must use
+// the Add method to add nodes
+message NodeSet {
+	option (gogoproto.goproto_getters) = false;
+	option (gogoproto.goproto_stringer) = false;
+	option (gogoproto.typedecl) = false;
+}
+
+// Report is the core data type. It's produced by probes, and consumed and
+// stored by apps. It's composed of multiple topologies, each representing
+// a different (related, but not equivalent) view of the network.
+message Report {
+	option (gogoproto.goproto_getters) = false;
+	option (gogoproto.typedecl) = false;
+	github.com.weaveworks.scope.report.Topology endpoint = 1 [(gogoproto.nullable) = false];
+	github.com.weaveworks.scope.report.Topology process = 2 [(gogoproto.nullable) = false];
+	github.com.weaveworks.scope.report.Topology container = 3 [(gogoproto.nullable) = false];
+	github.com.weaveworks.scope.report.Topology pod = 4 [(gogoproto.nullable) = false];
+	github.com.weaveworks.scope.report.Topology service = 5 [(gogoproto.nullable) = false];
+	github.com.weaveworks.scope.report.Topology deployment = 6 [(gogoproto.nullable) = false];
+	github.com.weaveworks.scope.report.Topology replica_set = 7 [(gogoproto.nullable) = false];
+	github.com.weaveworks.scope.report.Topology container_image = 8 [(gogoproto.nullable) = false];
+	github.com.weaveworks.scope.report.Topology host = 9 [(gogoproto.nullable) = false];
+	github.com.weaveworks.scope.report.Topology ecstask = 10 [(gogoproto.customname) = "ECSTask", (gogoproto.nullable) = false];
+	github.com.weaveworks.scope.report.Topology ecsservice = 11 [(gogoproto.customname) = "ECSService", (gogoproto.nullable) = false];
+	github.com.weaveworks.scope.report.Topology swarm_service = 12 [(gogoproto.nullable) = false];
+	github.com.weaveworks.scope.report.Topology overlay = 13 [(gogoproto.nullable) = false];
+	github.com.weaveworks.scope.report.Sampling sampling = 14 [(gogoproto.nullable) = false];
+	google.protobuf.Duration window = 15 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
+	bool shortcut = 16;
+	string id = 17 [(gogoproto.customname) = "ID"];
+}
+
+// Row is the type that holds the table data for the UI. Entries map from column ID to cell value.
+message Row {
+	option (gogoproto.goproto_getters) = false;
+	option (gogoproto.typedecl) = false;
+	string id = 1 [(gogoproto.customname) = "ID"];
+	map<string, string> entries = 2;
+}
+
+// Sample is a single datapoint of a metric.
+message Sample {
+	option (gogoproto.goproto_getters) = false;
+	option (gogoproto.typedecl) = false;
+	google.protobuf.Timestamp timestamp = 1 [(gogoproto.nullable) = false, (gogoproto.stdtime) = true];
+	double value = 2;
+}
+
+// Sampling describes how the packet data sources for this report were
+// sampled. It can be used to calculate effective sample rates. We can't
+// just put the rate here, because that can't be accurately merged. Counts
+// in e.g. edge metadata structures have already been adjusted to
+// compensate for the sample rate.
+message Sampling {
+	option (gogoproto.goproto_getters) = false;
+	option (gogoproto.typedecl) = false;
+	uint64 count = 1;
+	uint64 total = 2;
+}
+
+// Sets is a string->set-of-strings map.
+// It is immutable.
+message Sets {
+	option (gogoproto.goproto_getters) = false;
+	option (gogoproto.goproto_stringer) = false;
+	option (gogoproto.typedecl) = false;
+}
+
+// StringLatestMap holds latest string instances.
+message StringLatestMap {
+	option (gogoproto.goproto_getters) = false;
+	option (gogoproto.goproto_stringer) = false;
+	option (gogoproto.typedecl) = false;
+}
+
+// TableTemplate describes how to render a table for the UI.
+message TableTemplate {
+	option (gogoproto.goproto_getters) = false;
+	option (gogoproto.typedecl) = false;
+	string id = 1 [(gogoproto.customname) = "ID"];
+	string label = 2;
+	string prefix = 3;
+	string type = 4;
+	repeated github.com.weaveworks.scope.report.Column columns = 5 [(gogoproto.nullable) = false];
+	map<string, string> fixed_rows = 6;
+}
+
+// Topology describes a specific view of a network. It consists of nodes and
+// edges, and metadata about those nodes and edges, represented by
+// EdgeMetadatas and Nodes respectively. Edges are directional, and embedded
+// in the Node struct.
+message Topology {
+	option (gogoproto.goproto_getters) = false;
+	option (gogoproto.typedecl) = false;
+	string shape = 1;
+	string label = 2;
+	string label_plural = 3;
+	map<string, github.com.weaveworks.scope.report.Node> nodes = 4 [(gogoproto.casttype) = "Nodes", (gogoproto.nullable) = false];
+	map<string, github.com.weaveworks.scope.report.Control> controls = 5 [(gogoproto.casttype) = "Controls", (gogoproto.nullable) = false];
+	map<string, github.com.weaveworks.scope.report.MetadataTemplate> metadata_templates = 6 [(gogoproto.casttype) = "MetadataTemplates", (gogoproto.nullable) = false];
+	map<string, github.com.weaveworks.scope.report.MetricTemplate> metric_templates = 7 [(gogoproto.casttype) = "MetricTemplates", (gogoproto.nullable) = false];
+	map<string, github.com.weaveworks.scope.report.TableTemplate> table_templates = 8 [(gogoproto.casttype) = "TableTemplates", (gogoproto.nullable) = false];
+}
+
