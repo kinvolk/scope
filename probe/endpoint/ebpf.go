@@ -1,14 +1,18 @@
 package endpoint
 
 import (
+	"bytes"
 	"fmt"
 	"regexp"
 	"strconv"
 	"sync"
+	"syscall"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/weaveworks/common/fs"
 	"github.com/weaveworks/scope/probe/endpoint/procspy"
 	"github.com/weaveworks/scope/probe/host"
+	"github.com/weaveworks/scope/probe/process"
 	"github.com/weaveworks/tcptracer-bpf/pkg/tracer"
 )
 
@@ -23,7 +27,7 @@ type ebpfConnection struct {
 type eventTracker interface {
 	handleConnection(ev tracer.EventType, tuple fourTuple, pid int, networkNamespace string)
 	walkConnections(f func(ebpfConnection))
-	feedInitialConnections(ci procspy.ConnIter, seenTuples map[string]fourTuple, hostNodeID string)
+	feedInitialConnections(ci procspy.ConnIter, seenTuples map[string]fourTuple, processesWaitingInAccept []int, hostNodeID string)
 	isReadyToHandleConnections() bool
 	isDead() bool
 	stop()
@@ -111,8 +115,12 @@ func tcpEventCbV4(e tracer.TcpV4) {
 
 	lastTimestampV4 = e.Timestamp
 
-	tuple := fourTuple{e.SAddr.String(), e.DAddr.String(), e.SPort, e.DPort}
-	ebpfTracker.handleConnection(e.Type, tuple, int(e.Pid), strconv.Itoa(int(e.NetNS)))
+	if e.Type == tracer.EventFdInstall {
+		ebpfTracker.handleFdInstall(e.Type, int(e.Pid), int(e.Fd))
+	} else {
+		tuple := fourTuple{e.SAddr.String(), e.DAddr.String(), e.SPort, e.DPort}
+		ebpfTracker.handleConnection(e.Type, tuple, int(e.Pid), strconv.Itoa(int(e.NetNS)))
+	}
 }
 
 func tcpEventCbV6(e tracer.TcpV6) {
@@ -123,6 +131,99 @@ func lostCb(count uint64) {
 	log.Errorf("tcp tracer lost %d events. Stopping the eBPF tracker", count)
 	ebpfTracker.dead = true
 	ebpfTracker.stop()
+}
+
+func tupleFromPidFd(pid int, fd int) (tuple fourTuple, netns string, ok bool) {
+	// read /proc/$pid/ns/net
+	//
+	// probe/endpoint/procspy/proc_linux.go supports Linux < 3.8 but we
+	// don't need that here since ebpf-enabled kernels will be > 3.8
+	netNamespacePath := fmt.Sprintf("/proc/%d/ns/net", pid)
+	var statNsFile syscall.Stat_t
+	err := fs.Stat(netNamespacePath, &statNsFile)
+	if err != nil {
+		log.Debugf("proc file %q disappeared before we could read it", netNamespacePath)
+		return fourTuple{}, "", false
+	}
+	netns = fmt.Sprintf("%d", statNsFile.Ino)
+
+	// find /proc/$pid/fd/$fd's ino
+	fdFilename := fmt.Sprintf("/proc/%d/fd/%d", pid, fd)
+	var statFdFile syscall.Stat_t
+	err = fs.Stat(fdFilename, &statFdFile)
+	if err != nil {
+		log.Debugf("proc file %q disappeared before we could read it", fdFilename)
+		return fourTuple{}, "", false
+	}
+
+	if statFdFile.Mode&syscall.S_IFMT != syscall.S_IFSOCK {
+		log.Errorf("file %q is not a socket", fdFilename)
+		return fourTuple{}, "", false
+	}
+	ino := statFdFile.Ino
+
+	// read both /proc/pid/net/{tcp,tcp6}
+	// tcp6 is necessary even for IPv4 because of IPv4-Mapped IPv6 Addresses
+	buf := bytes.NewBuffer(make([]byte, 0, 5000))
+
+	tcp4Filename := fmt.Sprintf("/proc/%d/net/tcp", pid)
+	fileTCP4, err := fs.Open(tcp4Filename)
+	if err != nil {
+		log.Debugf("proc file %q disappeared before we could read it", tcp4Filename)
+		return fourTuple{}, "", false
+	}
+	defer fileTCP4.Close()
+	_, err = buf.ReadFrom(fileTCP4)
+	if err != nil {
+		log.Debugf("proc file %q disappeared before we could read it", tcp4Filename)
+		return fourTuple{}, "", false
+	}
+
+	tcp6Filename := fmt.Sprintf("/proc/%d/net/tcp6", pid)
+	fileTCP6, err := fs.Open(tcp6Filename)
+	if err != nil {
+		log.Debugf("proc file %q disappeared before we could read it", tcp6Filename)
+		return fourTuple{}, "", false
+	}
+	defer fileTCP6.Close()
+	_, err = buf.ReadFrom(fileTCP6)
+	if err != nil {
+		log.Debugf("proc file %q disappeared before we could read it", tcp6Filename)
+		return fourTuple{}, "", false
+	}
+
+	// find /proc/$pid/fd/$fd's ino in /proc/pid/net/tcp
+	pn := procspy.NewProcNet(buf.Bytes())
+	for {
+		n := pn.Next()
+		if n == nil {
+			log.Debugf("connection for proc file %q not found. buf=%q", fdFilename, buf.String())
+			break
+		}
+		if n.Inode == ino {
+			return fourTuple{n.LocalAddress.String(), n.RemoteAddress.String(), n.LocalPort, n.RemotePort}, netns, true
+		}
+	}
+
+	return fourTuple{}, "", false
+}
+
+func (t *EbpfTracker) handleFdInstall(ev tracer.EventType, pid int, fd int) {
+	tuple, netns, ok := tupleFromPidFd(pid, fd)
+	log.Debugf("EbpfTracker: got fd-install event: pid=%d fd=%d -> tuple=%s netns=%s ok=%v", pid, fd, tuple, netns, ok)
+	if !ok {
+		return
+	}
+	conn := ebpfConnection{
+		incoming:         true,
+		tuple:            tuple,
+		pid:              pid,
+		networkNamespace: netns,
+	}
+	t.openConnections[tuple.String()] = conn
+	if !process.IsProcInAccept("/proc", strconv.Itoa(pid)) {
+		t.tracer.RemoveFdInstallWatcher(uint32(pid))
+	}
 }
 
 func (t *EbpfTracker) handleConnection(ev tracer.EventType, tuple fourTuple, pid int, networkNamespace string) {
@@ -160,6 +261,8 @@ func (t *EbpfTracker) handleConnection(ev tracer.EventType, tuple fourTuple, pid
 		} else {
 			log.Debugf("EbpfTracker: unmatched close event: %s pid=%d netns=%s", tuple.String(), pid, networkNamespace)
 		}
+	default:
+		log.Debugf("EbpfTracker: unknown event: %s (%d)", ev, ev)
 	}
 }
 
@@ -178,7 +281,7 @@ func (t *EbpfTracker) walkConnections(f func(ebpfConnection)) {
 	t.closedConnections = t.closedConnections[:0]
 }
 
-func (t *EbpfTracker) feedInitialConnections(conns procspy.ConnIter, seenTuples map[string]fourTuple, hostNodeID string) {
+func (t *EbpfTracker) feedInitialConnections(conns procspy.ConnIter, seenTuples map[string]fourTuple, processesWaitingInAccept []int, hostNodeID string) {
 	t.readyToHandleConnections = true
 	for conn := conns.Next(); conn != nil; conn = conns.Next() {
 		var (
@@ -203,6 +306,10 @@ func (t *EbpfTracker) feedInitialConnections(conns procspy.ConnIter, seenTuples 
 		} else {
 			t.handleConnection(tracer.EventAccept, tuple, int(conn.Proc.PID), namespaceID)
 		}
+	}
+	for _, p := range processesWaitingInAccept {
+		t.tracer.AddFdInstallWatcher(uint32(p))
+		log.Debugf("EbpfTracker: install fd-install watcher: pid=%d", p)
 	}
 }
 
