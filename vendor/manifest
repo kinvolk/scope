@@ -900,8 +900,8 @@
 		{
 			"importpath": "github.com/golang/protobuf/proto",
 			"repository": "https://github.com/golang/protobuf",
-			"vcs": "",
-			"revision": "5baca1b63153b1a82014546382edbdd302b138b6",
+			"vcs": "git",
+			"revision": "fec3b39b059c0f88fa6b20f5ed012b1aa203a8b4",
 			"branch": "master",
 			"path": "/proto"
 		},
@@ -909,7 +909,7 @@
 			"importpath": "github.com/golang/protobuf/protoc-gen-go/descriptor",
 			"repository": "https://github.com/golang/protobuf",
 			"vcs": "git",
-			"revision": "69b215d01a5606c843240eab4937eab3acee6530",
+			"revision": "fec3b39b059c0f88fa6b20f5ed012b1aa203a8b4",
 			"branch": "master",
 			"path": "/protoc-gen-go/descriptor",
 			"notests": true
