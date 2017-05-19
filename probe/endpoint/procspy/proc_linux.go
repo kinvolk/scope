@@ -91,10 +91,8 @@ func getNetNamespacePathSuffix() string {
 	return netNamespacePathSuffix
 }
 
-// Read the connections for a group of processes living in the same namespace,
-// which are found (identically) in /proc/PID/net/tcp{,6} for any of the
-// processes.
-func readProcessConnections(buf *bytes.Buffer, namespaceProcs []*process.Process) (bool, error) {
+// ReadTCPFiles reads the proc files tcp and tcp6 for a pid
+func ReadTCPFiles(pid int, buf *bytes.Buffer) (int64, error) {
 	var (
 		errRead  error
 		errRead6 error
@@ -102,31 +100,42 @@ func readProcessConnections(buf *bytes.Buffer, namespaceProcs []*process.Process
 		read6    int64
 	)
 
+	// even for tcp4 connections, we need to read the "tcp6" file because of IPv4-Mapped IPv6 Addresses
+
+	dirName := strconv.Itoa(pid)
+	read, errRead = readFile(filepath.Join(procRoot, dirName, "/net/tcp"), buf)
+	read6, errRead6 = readFile(filepath.Join(procRoot, dirName, "/net/tcp6"), buf)
+
+	if errRead != nil {
+		return read + read6, errRead
+	}
+	return read + read6, errRead6
+}
+
+// Read the connections for a group of processes living in the same namespace,
+// which are found (identically) in /proc/PID/net/tcp{,6} for any of the
+// processes.
+func readProcessConnections(buf *bytes.Buffer, namespaceProcs []*process.Process) (bool, error) {
+	var (
+		read int64
+		err  error
+	)
 	for _, p := range namespaceProcs {
-		dirName := strconv.Itoa(p.PID)
-
-		read, errRead = readFile(filepath.Join(procRoot, dirName, "/net/tcp"), buf)
-		read6, errRead6 = readFile(filepath.Join(procRoot, dirName, "/net/tcp6"), buf)
-
-		if errRead != nil || errRead6 != nil {
+		read, err = ReadTCPFiles(p.PID, buf)
+		if err != nil {
 			// try next process
 			continue
 		}
 		// Return after succeeding on any process
 		// (proc/PID/net/tcp and proc/PID/net/tcp6 are identical for all the processes in the same namespace)
-		return read+read6 > 0, nil
+		return read > 0, nil
 	}
 
-	// It would be cool to have an "or" error combinator
-	if errRead != nil {
-		return false, errRead
-	}
-	if errRead6 != nil {
-		return false, errRead6
+	if err != nil {
+		return false, err
 	}
 
 	return false, nil
-
 }
 
 // walkNamespace does the work of walk for a single namespace

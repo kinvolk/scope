@@ -140,8 +140,7 @@ func tupleFromPidFd(pid int, fd int) (tuple fourTuple, netns string, ok bool) {
 	// don't need that here since ebpf-enabled kernels will be > 3.8
 	netNamespacePath := fmt.Sprintf("/proc/%d/ns/net", pid)
 	var statNsFile syscall.Stat_t
-	err := fs.Stat(netNamespacePath, &statNsFile)
-	if err != nil {
+	if err := fs.Stat(netNamespacePath, &statNsFile); err != nil {
 		log.Debugf("proc file %q disappeared before we could read it", netNamespacePath)
 		return fourTuple{}, "", false
 	}
@@ -150,8 +149,7 @@ func tupleFromPidFd(pid int, fd int) (tuple fourTuple, netns string, ok bool) {
 	// find /proc/$pid/fd/$fd's ino
 	fdFilename := fmt.Sprintf("/proc/%d/fd/%d", pid, fd)
 	var statFdFile syscall.Stat_t
-	err = fs.Stat(fdFilename, &statFdFile)
-	if err != nil {
+	if err := fs.Stat(fdFilename, &statFdFile); err != nil {
 		log.Debugf("proc file %q disappeared before we could read it", fdFilename)
 		return fourTuple{}, "", false
 	}
@@ -163,32 +161,9 @@ func tupleFromPidFd(pid int, fd int) (tuple fourTuple, netns string, ok bool) {
 	ino := statFdFile.Ino
 
 	// read both /proc/pid/net/{tcp,tcp6}
-	// tcp6 is necessary even for IPv4 because of IPv4-Mapped IPv6 Addresses
 	buf := bytes.NewBuffer(make([]byte, 0, 5000))
-
-	tcp4Filename := fmt.Sprintf("/proc/%d/net/tcp", pid)
-	fileTCP4, err := fs.Open(tcp4Filename)
-	if err != nil {
-		log.Debugf("proc file %q disappeared before we could read it", tcp4Filename)
-		return fourTuple{}, "", false
-	}
-	defer fileTCP4.Close()
-	_, err = buf.ReadFrom(fileTCP4)
-	if err != nil {
-		log.Debugf("proc file %q disappeared before we could read it", tcp4Filename)
-		return fourTuple{}, "", false
-	}
-
-	tcp6Filename := fmt.Sprintf("/proc/%d/net/tcp6", pid)
-	fileTCP6, err := fs.Open(tcp6Filename)
-	if err != nil {
-		log.Debugf("proc file %q disappeared before we could read it", tcp6Filename)
-		return fourTuple{}, "", false
-	}
-	defer fileTCP6.Close()
-	_, err = buf.ReadFrom(fileTCP6)
-	if err != nil {
-		log.Debugf("proc file %q disappeared before we could read it", tcp6Filename)
+	if _, err := procspy.ReadTCPFiles(pid, buf); err != nil {
+		log.Debugf("TCP proc file for pid %d disappeared before we could read it: %v", pid, err)
 		return fourTuple{}, "", false
 	}
 
