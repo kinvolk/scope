@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/weaveworks/tcptracer-bpf/pkg/tracer"
 )
@@ -220,6 +221,8 @@ func TestInvalidTimeStampDead(t *testing.T) {
 	if cnt != 2 {
 		t.Errorf("walkConnections found %v instead of 2 connections", cnt)
 	}
+	// EbpfTracker is marked as dead asynchronously.
+	time.Sleep(100 * time.Millisecond)
 	if !mockEbpfTracker.isDead() {
 		t.Errorf("expected ebpfTracker to be set to dead after events with wrong order")
 	}

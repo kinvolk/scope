@@ -2,6 +2,7 @@ package endpoint
 
 import (
 	"strconv"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/weaveworks/scope/probe/endpoint/procspy"
@@ -29,6 +30,9 @@ type connectionTracker struct {
 	flowWalker      flowWalker // Interface
 	ebpfTracker     *EbpfTracker
 	reverseResolver *reverseResolver
+
+	ebpfFailureCount int
+	ebpfFailureTime  time.Time
 }
 
 func newConnectionTracker(conf connectionTrackerConfig) connectionTracker {
@@ -87,7 +91,27 @@ func (t *connectionTracker) ReportConnections(rpt *report.Report) {
 			t.performEbpfTrack(rpt, hostNodeID)
 			return
 		}
-		log.Warnf("ebpf tracker died, gently falling back to proc scanning")
+
+		// We only restart the EbpfTracker if the failures are not too frequent to
+		// avoid repeatitive restarts.
+		if t.ebpfFailureCount > 0 && t.ebpfFailureTime.Before(time.Now().Add(-5*time.Minute)) {
+			t.ebpfFailureCount = 0
+		}
+		t.ebpfFailureTime = time.Now()
+
+		if t.ebpfFailureCount == 0 {
+			log.Warnf("ebpf tracker died, restarting it")
+			t.ebpfFailureCount++
+			err := t.ebpfTracker.restart()
+			if err == nil {
+				go t.getInitialState()
+				t.performEbpfTrack(rpt, hostNodeID)
+				return
+			}
+			log.Warnf("could not restart ebpf tracker, falling back to proc scanning: %v", err)
+		} else {
+			log.Warnf("ebpf tracker died again, gently falling back to proc scanning")
+		}
 		t.useProcfs()
 	}
 
